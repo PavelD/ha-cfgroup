@@ -1,0 +1,19 @@
+# Lokale Zugangsdaten und persönliche Konfiguration
+config.sh
+
+# Lokales Archiv der alten Bash-/MQTT-Variante (nicht auf GitHub)
+archive/
+
+# Laufzeit-/Logdateien
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Editor-/Systemdateien
+.DS_Store
+.vscode/
+.idea/

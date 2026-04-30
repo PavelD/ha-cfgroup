@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up CF Group heat pump",
+        "description": "Please enter the credentials for your heat pump app (Aquatemp / Linked-Go / CF Group).",
+        "data": {
+          "username": "Username or e-mail",
+          "password": "Password",
+          "cloud_url": "Cloud URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The cloud is not reachable.",
+      "invalid_auth": "Username or password was rejected.",
+      "unknown": "Unexpected error. Please check the logs."
+    },
+    "abort": {
+      "already_configured": "This device has already been set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Settings",
+        "data": {
+          "update_interval": "Polling interval in seconds"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "heatpump": {
+        "name": "Heat pump"
+      }
+    },
+    "sensor": {
+      "inlet_temperature": {
+        "name": "Inlet temperature"
+      },
+      "coil_temperature": {
+        "name": "Coil temperature"
+      },
+      "ambient_temperature": {
+        "name": "Ambient temperature"
+      },
+      "target_temperature": {
+        "name": "Target temperature"
+      },
+      "mode": {
+        "name": "Operating mode"
+      }
+    },
+    "switch": {
+      "power": {
+        "name": "Power"
+      }
+    }
+  }
+}

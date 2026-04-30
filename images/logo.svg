@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 200" role="img" aria-label="Heat Pump Integration für Home Assistant">
+  <title>Heat Pump Integration</title>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b3954"/>
+      <stop offset="100%" stop-color="#1f6feb"/>
+    </linearGradient>
+    <linearGradient id="warm" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#ff7a18"/>
+      <stop offset="100%" stop-color="#ffd166"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Hintergrundfläche mit abgerundeten Ecken -->
+  <rect x="0" y="0" width="480" height="200" rx="24" ry="24" fill="url(#bg)"/>
+
+  <!-- Symbolblock: stilisierter Wassertropfen mit Heizwellen -->
+  <g transform="translate(40 40)">
+    <!-- Wassertropfen (Pool) -->
+    <path d="M60 0 C90 40 110 70 110 95 A50 50 0 1 1 10 95 C10 70 30 40 60 0 Z"
+          fill="#9cd0ff" stroke="#ffffff" stroke-width="4"/>
+    <!-- Heizwellen im Tropfen -->
+    <path d="M30 95 q15 -15 30 0 t30 0" fill="none" stroke="url(#warm)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M30 75 q15 -15 30 0 t30 0" fill="none" stroke="url(#warm)" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+    <path d="M30 55 q15 -15 30 0 t30 0" fill="none" stroke="url(#warm)" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+  </g>
+
+  <!-- Text rechts neben dem Symbol -->
+  <g transform="translate(200 80)" font-family="Helvetica, Arial, sans-serif" fill="#ffffff">
+    <text x="0" y="0" font-size="36" font-weight="700" letter-spacing="1">Heat Pump</text>
+    <text x="0" y="36" font-size="22" font-weight="400" opacity="0.85">Home Assistant Integration</text>
+  </g>
+</svg>

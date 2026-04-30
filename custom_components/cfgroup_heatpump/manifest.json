@@ -1,0 +1,12 @@
+{
+  "domain": "cfgroup_heatpump",
+  "name": "CF Group Wärmepumpe",
+  "codeowners": ["@Afraskai"],
+  "config_flow": true,
+  "documentation": "https://github.com/Afraskai/cfgroup",
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/Afraskai/cfgroup/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

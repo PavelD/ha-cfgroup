@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "CF Group Wärmepumpe einrichten",
+        "description": "Bitte gib die Zugangsdaten Deiner Wärmepumpen-App (Aquatemp / Linked-Go / CF Group) ein.",
+        "data": {
+          "username": "Benutzername oder E-Mail",
+          "password": "Passwort",
+          "cloud_url": "Cloud-URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Die Cloud ist nicht erreichbar.",
+      "invalid_auth": "Benutzername oder Passwort wurde abgelehnt.",
+      "unknown": "Unerwarteter Fehler. Bitte prüfe die Logs."
+    },
+    "abort": {
+      "already_configured": "Dieses Gerät wurde bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen",
+        "data": {
+          "update_interval": "Abfrage-Intervall in Sekunden"
+        }
+      }
+    }
+  },
+  "entity": {
+    "climate": {
+      "heatpump": {
+        "name": "Wärmepumpe"
+      }
+    },
+    "sensor": {
+      "inlet_temperature": {
+        "name": "Einlass-Temperatur"
+      },
+      "coil_temperature": {
+        "name": "Coil-Temperatur"
+      },
+      "ambient_temperature": {
+        "name": "Umgebungstemperatur"
+      },
+      "target_temperature": {
+        "name": "Zieltemperatur"
+      },
+      "mode": {
+        "name": "Betriebsmodus"
+      }
+    },
+    "switch": {
+      "power": {
+        "name": "Power"
+      }
+    }
+  }
+}
