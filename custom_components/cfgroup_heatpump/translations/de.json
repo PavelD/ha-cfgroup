@@ -9,6 +9,22 @@
           "password": "Passwort",
           "cloud_url": "Cloud-URL"
         }
+      },
+      "reauth_confirm": {
+        "title": "CF Group Wärmepumpe neu authentifizieren",
+        "description": "Das Passwort für {username} ist nicht mehr gültig. Bitte gib das neue Passwort ein.",
+        "data": {
+          "password": "Passwort"
+        }
+      },
+      "reconfigure": {
+        "title": "CF Group Wärmepumpe neu konfigurieren",
+        "description": "Ändere die Zugangsdaten oder die Cloud-URL dieser Integration. Das Gerät muss dasselbe bleiben.",
+        "data": {
+          "username": "Benutzername oder E-Mail",
+          "password": "Passwort",
+          "cloud_url": "Cloud-URL"
+        }
       }
     },
     "error": {
@@ -17,7 +33,10 @@
       "unknown": "Unerwarteter Fehler. Bitte prüfe die Logs."
     },
     "abort": {
-      "already_configured": "Dieses Gerät wurde bereits eingerichtet."
+      "already_configured": "Dieses Gerät wurde bereits eingerichtet.",
+      "reauth_successful": "Zugangsdaten erfolgreich aktualisiert.",
+      "reconfigure_successful": "Integration erfolgreich neu konfiguriert.",
+      "wrong_account": "Die neuen Zugangsdaten gehören zu einer anderen Wärmepumpe als der konfigurierten."
     }
   },
   "options": {

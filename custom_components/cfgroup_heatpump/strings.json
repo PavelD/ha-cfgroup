@@ -9,6 +9,22 @@
           "password": "Password",
           "cloud_url": "Cloud URL"
         }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate CF Group heat pump",
+        "description": "The password for {username} is no longer valid. Please enter the new password.",
+        "data": {
+          "password": "Password"
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure CF Group heat pump",
+        "description": "Change the credentials or the cloud URL of this integration. The device must remain the same.",
+        "data": {
+          "username": "Username or e-mail",
+          "password": "Password",
+          "cloud_url": "Cloud URL"
+        }
       }
     },
     "error": {
@@ -17,7 +33,10 @@
       "unknown": "Unexpected error. Please check the logs."
     },
     "abort": {
-      "already_configured": "This device has already been set up."
+      "already_configured": "This device has already been set up.",
+      "reauth_successful": "Credentials updated successfully.",
+      "reconfigure_successful": "Integration reconfigured successfully.",
+      "wrong_account": "The new credentials point to a different heat pump than the configured one."
     }
   },
   "options": {
