@@ -31,9 +31,22 @@ Manufacturer: [CF Group](https://www.cf.group/de/)
 - **Cloud account:** Credentials for the CF Group / Aquatemp / Linked-Go app.
 - **Internet connection:** The integration talks directly to the vendor cloud.
 
+## Tested hardware
+
+This integration has been developed and tested **only with the `CF Pool Heat Pump SMART PLUS 3 kW`**.
+
+> ⚠️ **Important safety note:** The Linked-Go cloud is shared by many different heat-pump models, and vendors do **not** assign the technical codes (e.g. `R01`, `R04`, `Mode`, `Power`) consistently across models. On a different model the same code may have a completely different meaning or value range. Using this integration on a model other than the tested one **without verification** can therefore cause incorrect values to be written to the device — up to and including damage to the unit or safety hazards.
+>
+> **Before first use, please verify the meaning of the codes in the vendor app:**
+>
+> 1. Open the Aquatemp app and select your device.
+> 2. Open `Device settings → Device parameters`.
+> 3. Compare the codes shown under `Status parameters` (read-only values) and `Control parameters` (e.g. code `066`) with the values in the table below.
+> 4. If `R01` (target temperature), `R04`/`R05` (min/max), `T02`/`T04`/`T05` (temperatures), `Power` and `Mode` do **not** match, **do not use** the integration with that device and please open an issue.
+
 ## Protocol codes
 
-The cloud API uses technical codes. These are used internally by the integration:
+The cloud API uses technical codes. These are used internally by the integration. The table below applies to the `CF Pool Heat Pump SMART PLUS 3 kW` and may differ on other models (see [Tested hardware](#tested-hardware)):
 
 ### Temperatures
 
@@ -78,45 +91,37 @@ Later, the polling interval can be changed under `Settings → Devices & service
 
 ## Development and testing
 
-For development the project also ships a **synchronous Python client** as a reference and testing tool outside Home Assistant.
+Automated tests run with `pytest` directly against the cloud client (no Home Assistant stack required). They cover error handling, the automatic re-login flow and the new diagnostic endpoints.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest tests/
 ```
-
-Read-only test with environment variables:
-
-```bash
-env CFGROUP_USERNAME="your-email@example.com" \
-    CFGROUP_PASSWORD="your-password" \
-    .venv/bin/python test_cfgroup_api.py
-```
-
-The test only reads data. It does not switch the heat pump and does not change the target temperature.
 
 ## Project layout
 
 ```text
 custom_components/
   cfgroup_heatpump/
-    __init__.py       Integration setup
-    manifest.json     HA metadata
-    const.py          Domain and protocol codes
-    api.py            Async cloud client
-    coordinator.py    DataUpdateCoordinator
-    config_flow.py    UI setup + options flow
-    entity.py         Shared CoordinatorEntity base
-    climate.py        Thermostat
-    sensor.py         Temperatures and mode
-    switch.py         Power switch
-    strings.json      UI strings
+    __init__.py        Integration setup
+    manifest.json      HA metadata
+    const.py           Domain and protocol codes
+    api.py             Async cloud client
+    coordinator.py     DataUpdateCoordinator (with offline tolerance)
+    config_flow.py     UI setup + options flow
+    entity.py          Shared CoordinatorEntity base
+    climate.py         Thermostat
+    sensor.py          Temperatures, mode, cloud status (diagnostic)
+    binary_sensor.py   Fault sensor (diagnostic)
+    switch.py          Power switch
+    strings.json       UI strings
     translations/
       de.json
       en.json
-cfgroup_api.py         Synchronous reference client
-test_cfgroup_api.py    Manual read-only test
+tests/                 pytest suite against the cloud client
 hacs.json              HACS metadata
+requirements-dev.txt   Development dependencies (pytest, aiohttp)
 ```
 
 ## Legacy bash/MQTT variant

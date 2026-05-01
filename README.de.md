@@ -31,9 +31,22 @@ Hersteller: [CF Group](https://www.cf.group/de/)
 - **Cloud-Account:** Zugangsdaten der CF Group / Aquatemp / Linked-Go App.
 - **Internetverbindung:** Die Integration spricht direkt mit der Hersteller-Cloud.
 
+## Getestete Hardware
+
+Diese Integration wurde **ausschließlich mit der `CF Pool Wärmepumpe SMART PLUS 3 kW`** entwickelt und getestet.
+
+> ⚠️ **Wichtiger Sicherheitshinweis:** Die Linked-Go-Cloud wird von vielen verschiedenen Wärmepumpen-Modellen genutzt, und die Hersteller belegen die technischen Codes (z. B. `R01`, `R04`, `Mode`, `Power`) **nicht einheitlich**. Auf einem anderen Modell kann derselbe Code eine völlig andere Bedeutung oder einen anderen Wertebereich haben. Wird die Integration ungeprüft auf einem fremden Modell verwendet, können dadurch falsche Werte geschrieben werden — bis hin zu Schäden am Gerät oder Sicherheitsrisiken.
+>
+> **Bitte prüfe vor der ersten Inbetriebnahme die Bedeutung der Codes in der Hersteller-App:**
+>
+> 1. Aquatemp-App öffnen → das eigene Gerät auswählen.
+> 2. `Geräteeinstellungen → Geräteparameter` öffnen.
+> 3. Unter `Statusparameter` (Mess­werte) und `Kontrollparameter` (z. B. Code `066`) die Codes mit den Werten in dieser Tabelle vergleichen.
+> 4. Stimmen `R01` (Zieltemperatur), `R04`/`R05` (Min/Max), `T02`/`T04`/`T05` (Temperaturen) sowie `Power` und `Mode` **nicht** überein, **nicht weiterverwenden** und ein Issue eröffnen.
+
 ## Protokoll-Codes
 
-Die Cloud-API verwendet technische Codes. Diese Codes nutzt die Integration intern:
+Die Cloud-API verwendet technische Codes. Diese Codes nutzt die Integration intern. Die folgende Tabelle gilt für die `CF Pool Wärmepumpe SMART PLUS 3 kW` und ist auf anderen Modellen ggf. abweichend (siehe Abschnitt [Getestete Hardware](#getestete-hardware)):
 
 ### Temperaturen
 
@@ -78,45 +91,37 @@ Nachträglich kann unter `Einstellungen → Geräte & Dienste → CF Group Wärm
 
 ## Entwicklung und Tests
 
-Für die Entwicklung enthält das Projekt zusätzlich einen **synchronen Python-Client** als Referenz- und Testwerkzeug außerhalb von Home Assistant.
+Automatisierte Tests laufen mit `pytest` direkt gegen den Cloud-Client (ohne Home-Assistant-Stack). Sie decken das Fehler-Handling, den automatischen Re-Login und die neuen Diagnose-Endpoints ab.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest tests/
 ```
-
-Lesetest mit Umgebungsvariablen:
-
-```bash
-env CFGROUP_USERNAME="deine-email@example.com" \
-    CFGROUP_PASSWORD="dein-passwort" \
-    .venv/bin/python test_cfgroup_api.py
-```
-
-Der Test liest nur Daten aus. Er schaltet die Wärmepumpe nicht und ändert keine Zieltemperatur.
 
 ## Projektstruktur
 
 ```text
 custom_components/
   cfgroup_heatpump/
-    __init__.py       Integrations-Setup
-    manifest.json     HA-Metadaten
-    const.py          Domain und Protokollcodes
-    api.py            Async-Client für die Cloud
-    coordinator.py    DataUpdateCoordinator
-    config_flow.py    UI-Einrichtung + Options-Flow
-    entity.py         Gemeinsame CoordinatorEntity-Basis
-    climate.py        Thermostat
-    sensor.py         Temperaturen und Modus
-    switch.py         Power-Schalter
-    strings.json      Texte
+    __init__.py        Integrations-Setup
+    manifest.json      HA-Metadaten
+    const.py           Domain und Protokollcodes
+    api.py             Async-Client für die Cloud
+    coordinator.py     DataUpdateCoordinator (mit Offline-Toleranz)
+    config_flow.py     UI-Einrichtung + Options-Flow
+    entity.py          Gemeinsame CoordinatorEntity-Basis
+    climate.py         Thermostat
+    sensor.py          Temperaturen, Modus, Cloud-Status (Diagnose)
+    binary_sensor.py   Störungs-Sensor (Diagnose)
+    switch.py          Power-Schalter
+    strings.json       Texte
     translations/
       de.json
       en.json
-cfgroup_api.py         Synchroner Referenz-Client
-test_cfgroup_api.py    Manueller Lesetest
+tests/                 pytest-Suite gegen den Cloud-Client
 hacs.json              HACS-Metadaten
+requirements-dev.txt   Test-Abhängigkeiten (pytest, aiohttp)
 ```
 
 ## Archiv: alte Bash-/MQTT-Variante
