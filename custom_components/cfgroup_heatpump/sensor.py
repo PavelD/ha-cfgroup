@@ -11,13 +11,21 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import EntityCategory, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import CFGroupConfigEntry
 from .api import HeatPumpData
 from .entity import CFGroupHeatPumpEntity
+
+
+def _cloud_status_value(data: HeatPumpData) -> str | None:
+    """Liest den Online-/Offline-Status aus den Daten als kleingeschriebener String."""
+    status = data.device_status
+    if status is None or status.status is None:
+        return None
+    return status.status.lower()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -72,6 +80,18 @@ TEMPERATURE_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
 )
 
 
+DIAGNOSTIC_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
+    CFGroupSensorEntityDescription(
+        key="cloud_status",
+        translation_key="cloud_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=["online", "offline"],
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_cloud_status_value,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: CFGroupConfigEntry,
@@ -81,7 +101,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     async_add_entities(
         CFGroupHeatPumpSensor(coordinator, description)
-        for description in TEMPERATURE_DESCRIPTIONS
+        for description in (*TEMPERATURE_DESCRIPTIONS, *DIAGNOSTIC_DESCRIPTIONS)
     )
 
 

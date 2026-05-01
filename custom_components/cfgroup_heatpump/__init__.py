@@ -18,7 +18,12 @@ from .const import (
 )
 from .coordinator import CFGroupHeatPumpCoordinator
 
-PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.CLIMATE,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 type CFGroupConfigEntry = ConfigEntry[CFGroupHeatPumpCoordinator]
 

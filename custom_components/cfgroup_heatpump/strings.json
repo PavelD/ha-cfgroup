@@ -70,6 +70,18 @@
       },
       "mode": {
         "name": "Operating mode"
+      },
+      "cloud_status": {
+        "name": "Cloud status",
+        "state": {
+          "online": "Online",
+          "offline": "Offline"
+        }
+      }
+    },
+    "binary_sensor": {
+      "fault": {
+        "name": "Fault"
       }
     },
     "switch": {

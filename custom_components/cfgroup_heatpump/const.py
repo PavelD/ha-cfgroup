@@ -23,6 +23,16 @@ MIN_UPDATE_INTERVAL = 60
 # Nach dieser Zeit wird der Login-Token vorsorglich erneuert.
 TOKEN_RENEWAL_SECONDS = 82_800
 
+# Cloud-Fehlercodes (Feld `error_code` in der JSON-Antwort).
+ERROR_CODE_SUCCESS = "0"
+ERROR_CODE_TOKEN_INVALID = "-100"  # Antwort enthält dann "请重新登录" (bitte neu einloggen).
+
+# So viele aufeinanderfolgende fehlgeschlagene Polls darf der Coordinator
+# tolerieren, bevor er die Entitäten als nicht verfügbar markiert. Bei
+# kurzen Aussetzern (z. B. WP nachts stromlos) bleiben die letzten Werte
+# erhalten und die Integration heilt sich beim nächsten Erfolg selbst.
+MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE = 3
+
 # Protokoll-Codes der Cloud-API, die regelmäßig abgerufen werden.
 PROTOCOL_CODE_POWER = "Power"
 PROTOCOL_CODE_MODE = "Mode"

@@ -7,11 +7,13 @@ from hashlib import md5
 from time import monotonic
 from typing import Any
 
-from aiohttp import ClientError, ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
 
 from .const import (
     DEFAULT_APP_ID,
     DEFAULT_CLOUD_URL,
+    ERROR_CODE_SUCCESS,
+    ERROR_CODE_TOKEN_INVALID,
     POLLED_PROTOCOL_CODES,
     PROTOCOL_CODE_POWER,
     PROTOCOL_CODE_TARGET_TEMP,
@@ -38,9 +40,49 @@ class CFGroupResponseError(CFGroupApiError):
     """Die Cloud hat eine unerwartete Antwort geliefert."""
 
 
+# Statuswert, den die Cloud im Feld `status` von `getDeviceStatus` zurückgibt,
+# wenn das Gerät online ist. Alle anderen Werte (z. B. "OFFLINE") werden als
+# offline interpretiert.
+DEVICE_STATUS_ONLINE = "ONLINE"
+
+
+@dataclass(frozen=True)
+class DeviceStatus:
+    """Roher Online-/Fehler-Status eines Gerätes laut Cloud."""
+
+    status: str | None
+    is_fault: bool
+    raw: dict[str, Any]
+
+    @property
+    def is_online(self) -> bool:
+        """Gibt True zurück, wenn die Cloud das Gerät als online führt."""
+        return self.status == DEVICE_STATUS_ONLINE
+
+
+@dataclass(frozen=True)
+class FaultEntry:
+    """Ein einzelner aktiver Fehler der Wärmepumpe.
+
+    Das Schema ist von der Cloud nicht dokumentiert; wir halten daher die
+    Rohdaten vor und stellen optional erkannte Felder zur Verfügung. Sollte
+    ein Feld in der Antwort fehlen, bleibt es `None`.
+    """
+
+    code: str | None
+    description: str | None
+    raw: dict[str, Any]
+
+
 @dataclass(frozen=True)
 class HeatPumpData:
-    """Aufbereitete Messwerte einer Wärmepumpe."""
+    """Aufbereitete Messwerte einer Wärmepumpe.
+
+    Neben den Sensorwerten aus `getDataByCode` enthält die Datenklasse
+    optional auch den schlanken Geräte-Status (`getDeviceStatus`) und die
+    aktiven Fehler (`getFaultDataByDeviceCode`). Beide Felder haben sichere
+    Defaults, sodass Tests und ältere Code-Pfade unverändert funktionieren.
+    """
 
     power: str | None
     mode: str | None
@@ -52,11 +94,48 @@ class HeatPumpData:
     min_temperature: float | None
     max_temperature: float | None
     raw_values: dict[str, Any]
+    device_status: DeviceStatus | None = None
+    faults: tuple[FaultEntry, ...] = ()
+
+    @classmethod
+    def empty(
+        cls,
+        device_status: "DeviceStatus | None" = None,
+        faults: "tuple[FaultEntry, ...]" = (),
+    ) -> "HeatPumpData":
+        """Liefert einen leeren Datensatz, optional mit Status/Faults befüllt.
+
+        Wird vom Coordinator beim ersten Update verwendet, wenn die Pumpe
+        offline ist und somit kein `getDataByCode`-Ergebnis vorliegt. So
+        können Diagnose-Entitäten trotzdem den aktuellen Status anzeigen,
+        während Climate/Switch sauber als "nicht verfügbar" erscheinen.
+        """
+        return cls(
+            power=None,
+            mode=None,
+            mode_state=None,
+            inlet_temperature=None,
+            coil_temperature=None,
+            ambient_temperature=None,
+            target_temperature=None,
+            min_temperature=None,
+            max_temperature=None,
+            raw_values={},
+            device_status=device_status,
+            faults=faults,
+        )
 
     @property
     def is_on(self) -> bool:
         """Gibt zurück, ob die Wärmepumpe gerade eingeschaltet ist."""
         return self.power == "1"
+
+    @property
+    def has_fault(self) -> bool:
+        """True, wenn die Cloud aktive Fehler oder das `is_fault`-Flag meldet."""
+        if self.device_status is not None and self.device_status.is_fault:
+            return True
+        return bool(self.faults)
 
 
 class CFGroupAsyncClient:
@@ -178,6 +257,75 @@ class CFGroupAsyncClient:
             raw_values=values,
         )
 
+    async def async_get_device_status(self, device_code: str) -> DeviceStatus:
+        """Holt den schlanken Online-/Fehler-Status für ein Gerät.
+
+        Nutzt den Endpoint `device/getDeviceStatus`, der deutlich weniger
+        Daten als `getDataByCode` liefert und sich daher als günstiger
+        Vorab-Check eignet (z. B. um bei einer offline gemeldeten Pumpe
+        gar nicht erst die teurere Datenabfrage auszulösen).
+        """
+        await self.async_ensure_token()
+        response = await self._async_request(
+            "device/getDeviceStatus", {"deviceCode": device_code}
+        )
+        result = response.get("objectResult")
+        if not isinstance(result, dict):
+            raise CFGroupResponseError(
+                "Die Cloud hat keinen gültigen Geräte-Status zurückgegeben."
+            )
+
+        status = _to_optional_string(result.get("status"))
+        # Cloud spiegelt das Feld in beiden Schreibweisen; wir akzeptieren
+        # beide und werten alles, was nicht explizit False ist, als Fehler.
+        is_fault_value = result.get("is_fault", result.get("isFault", False))
+        return DeviceStatus(
+            status=status,
+            is_fault=bool(is_fault_value),
+            raw=result,
+        )
+
+    async def async_get_fault_data(self, device_code: str) -> list[FaultEntry]:
+        """Holt die Liste aktiver Fehler für ein Gerät.
+
+        Bei einer fehlerfreien Pumpe ist die Liste leer (`objectResult: []`).
+        Das genaue Schema einzelner Einträge ist von der Cloud nicht
+        dokumentiert; wir lesen daher robust die häufig genutzten Felder
+        und legen die Rohdaten unter `raw` ab.
+        """
+        await self.async_ensure_token()
+        response = await self._async_request(
+            "device/getFaultDataByDeviceCode", {"deviceCode": device_code}
+        )
+        result = response.get("objectResult")
+        if result is None:
+            return []
+        if not isinstance(result, list):
+            raise CFGroupResponseError(
+                "Die Cloud hat keine gültige Fehlerliste zurückgegeben."
+            )
+
+        faults: list[FaultEntry] = []
+        for item in result:
+            if not isinstance(item, dict):
+                continue
+            faults.append(
+                FaultEntry(
+                    code=_to_optional_string(
+                        item.get("fault_code")
+                        or item.get("code")
+                        or item.get("error_code")
+                    ),
+                    description=_to_optional_string(
+                        item.get("description")
+                        or item.get("fault_describe")
+                        or item.get("error_msg")
+                    ),
+                    raw=item,
+                )
+            )
+        return faults
+
     async def async_set_power(self, device_code: str, enabled: bool) -> None:
         """Schaltet die Wärmepumpe ein oder aus."""
         value = "1" if enabled else "0"
@@ -220,8 +368,37 @@ class CFGroupAsyncClient:
         endpoint: str,
         payload: dict[str, Any],
         include_token: bool = True,
+        _retry_after_relogin: bool = True,
     ) -> dict[str, Any]:
-        """Führt einen POST-Request gegen die Cloud-API aus."""
+        """Führt einen POST-Request gegen die Cloud-API aus.
+
+        Bei Auth-Fehlern (egal ob HTTP 401/403 oder JSON-Body mit
+        `error_code: "-100"`) wird der Token verworfen, ein frischer Login
+        ausgelöst und der Request einmalig wiederholt. Damit erholt sich
+        die Integration ohne manuelles "Neu laden" durch den Nutzer.
+        Beim `user/login`-Endpunkt selbst wird kein Retry versucht, um
+        Endlosschleifen zu verhindern.
+        """
+        try:
+            return await self._async_send_once(endpoint, payload, include_token)
+        except CFGroupAuthenticationError:
+            if _retry_after_relogin and include_token and endpoint != "user/login":
+                await self.async_login()
+                return await self._async_request(
+                    endpoint,
+                    payload,
+                    include_token=include_token,
+                    _retry_after_relogin=False,
+                )
+            raise
+
+    async def _async_send_once(
+        self,
+        endpoint: str,
+        payload: dict[str, Any],
+        include_token: bool,
+    ) -> dict[str, Any]:
+        """Sendet genau einen Request und wertet die Antwort aus."""
         headers = {"Content-Type": "application/json; charset=utf-8"}
         if include_token and self._token:
             headers["x-token"] = self._token
@@ -235,6 +412,13 @@ class CFGroupAsyncClient:
                 headers=headers,
                 timeout=self._timeout,
             ) as response:
+                # HTTP 401/403: Cloud lehnt den Request auf Transport-Ebene ab.
+                # Das ist ein klares Auth-Signal, kein generischer Verbindungsfehler.
+                if response.status in (401, 403):
+                    self._invalidate_token()
+                    raise CFGroupAuthenticationError(
+                        f"Cloud lehnt Anfrage mit HTTP {response.status} ab."
+                    )
                 response.raise_for_status()
                 try:
                     data = await response.json(content_type=None)
@@ -242,6 +426,11 @@ class CFGroupAsyncClient:
                     raise CFGroupResponseError(
                         "Die Cloud-Antwort ist kein gültiges JSON."
                     ) from error
+        except ClientResponseError as error:
+            # Wird von raise_for_status() ausgelöst (HTTP 4xx/5xx ungleich 401/403).
+            raise CFGroupConnectionError(
+                f"Cloud antwortet mit HTTP-Fehler {error.status}."
+            ) from error
         except ClientError as error:
             raise CFGroupConnectionError(
                 f"Verbindung zur Cloud fehlgeschlagen: {error}"
@@ -259,22 +448,46 @@ class CFGroupAsyncClient:
         self._raise_for_api_error(data)
         return data
 
+    def _invalidate_token(self) -> None:
+        """Verwirft den aktuell gespeicherten Token."""
+        self._token = None
+        self._token_created_at = None
+
     def _raise_for_api_error(self, data: dict[str, Any]) -> None:
-        """Wirft passende Fehler, wenn die Cloud einen Fehlerstatus meldet."""
-        # Die Cloud nutzt sowohl `isReusltSuc` (Tippfehler der API) als auch `isResultSuc`.
+        """Wirft passende Fehler, wenn die Cloud einen Fehlerstatus meldet.
+
+        Die Cloud signalisiert Fehler primär über das Feld `error_code`
+        (String). `"0"` heißt Erfolg, alle anderen Werte sind Fehler. Das
+        Flag `isReusltSuc` (Tippfehler der API) bzw. `isResultSuc` ist ein
+        zusätzliches Bool, das bei Fehlern auf False steht.
+        """
+        error_code = data.get("error_code")
+        if error_code is not None:
+            error_code = str(error_code)
+
         is_success_flag = data.get("isReusltSuc", data.get("isResultSuc", True))
-        if is_success_flag is False:
-            message = (
-                data.get("msg")
-                or data.get("message")
-                or "Die Cloud meldet einen unbekannten Fehler."
+        is_error = (error_code is not None and error_code != ERROR_CODE_SUCCESS) or (
+            is_success_flag is False
+        )
+        if not is_error:
+            return
+
+        message = (
+            data.get("error_msg")
+            or data.get("msg")
+            or data.get("message")
+            or "Die Cloud meldet einen unbekannten Fehler."
+        )
+        message_str = str(message)
+
+        if error_code == ERROR_CODE_TOKEN_INVALID or _looks_like_auth_error(message_str):
+            self._invalidate_token()
+            raise CFGroupAuthenticationError(
+                f"Cloud meldet Auth-Fehler (error_code={error_code}): {message_str}"
             )
-            text = str(message).lower()
-            if "token" in text or "auth" in text or "login" in text:
-                self._token = None
-                self._token_created_at = None
-                raise CFGroupAuthenticationError(str(message))
-            raise CFGroupResponseError(str(message))
+
+        suffix = f" (error_code={error_code})" if error_code else ""
+        raise CFGroupResponseError(f"{message_str}{suffix}")
 
 
 def _to_optional_float(value: Any) -> float | None:
@@ -299,3 +512,18 @@ def _format_number(value: float) -> str:
     if float(value).is_integer():
         return str(int(value))
     return str(value)
+
+
+def _looks_like_auth_error(message: str) -> bool:
+    """Heuristische Erkennung von Auth-Meldungen als Fallback.
+
+    Die Cloud liefert die Token-abgelaufen-Meldung auf Chinesisch
+    ("请重新登录"). Wir prüfen daher zusätzlich auf das chinesische
+    Schlüsselwort sowie auf die englischen/deutschen Varianten, falls die
+    API in einer anderen Sprache antwortet.
+    """
+    text = message.lower()
+    if any(keyword in text for keyword in ("token", "auth", "login", "anmelden")):
+        return True
+    # "请重新登录" = bitte neu einloggen.
+    return "重新登录" in message or "登录" in message
