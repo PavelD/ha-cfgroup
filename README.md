@@ -124,9 +124,128 @@ hacs.json              HACS metadata
 requirements-dev.txt   Development dependencies (pytest, aiohttp)
 ```
 
-## Legacy bash/MQTT variant
+## Technical Architecture
 
-An earlier bash/MQTT implementation (`api_cfgroup.sh` with `config.sh`) is kept only in a local `archive/` folder. That folder is ignored via `.gitignore` and is not pushed to GitHub.
+### System Architecture
+
+```mermaid
+graph TD
+    HA[Home Assistant] -->|Config Flow| CF[Config Flow]
+    HA -->|Climate/Sensor/Switch| ENT[Entities]
+    ENT -->|Request data| COORD[Coordinator]
+    COORD -->|API calls| API[API Client]
+    API -->|HTTP Requests| CLOUD[Linked-Go Cloud]
+    CLOUD -->|Control commands| WP[Heat Pump]
+    WP -->|Status| CLOUD
+    CLOUD -->|Responses| API
+    API -->|Data| COORD
+    COORD -->|Update| ENT
+    ENT -->|Display| HA
+    
+    style HA fill:#4CAF50,color:#fff
+    style CLOUD fill:#2196F3,color:#fff
+    style WP fill:#FF9800,color:#fff
+    style API fill:#9C27B0,color:#fff
+    style COORD fill:#673AB7,color:#fff
+```
+
+### Temperature Change - Command Flow
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant HA as Home Assistant
+    participant Climate as Climate Entity
+    participant API as API Client
+    participant Cloud as Linked-Go Cloud
+    participant WP as Heat Pump
+
+    User->>HA: Change temperature (e.g. 28°C)
+    HA->>Climate: async_set_temperature()
+    Climate->>API: async_set_target_temperature(28°C)
+    API->>API: async_ensure_token()
+    API->>Cloud: POST device/control
+    Note over API,Cloud: Max. 15 seconds timeout
+    Cloud->>Cloud: Validate command
+    Cloud->>API: Confirmation (success)
+    API->>Climate: Done
+    Climate->>HA: Status updated
+    Cloud->>WP: Send temperature 28°C
+    WP->>Cloud: Confirmation
+```
+
+### Regular Data Polling
+
+```mermaid
+sequenceDiagram
+    participant COORD as Coordinator
+    participant API as API Client
+    participant Cloud as Linked-Go Cloud
+    participant ENT as Entities
+
+    Note over COORD: Every 180 seconds
+    COORD->>COORD: _async_update_data()
+    COORD->>API: async_get_device_status()
+    API->>Cloud: GET device/getDeviceStatus
+    Cloud->>API: Status (ONLINE/OFFLINE)
+    
+    alt Device ONLINE
+        COORD->>API: async_get_heatpump_data()
+        API->>Cloud: POST device/getDataByCode
+        Cloud->>API: Temperatures, Power, Mode
+        COORD->>API: async_get_fault_data()
+        API->>Cloud: POST device/getFaultDataByDeviceCode
+        Cloud->>API: Fault list
+    else Device OFFLINE
+        Note over COORD: No data query
+        COORD->>COORD: Keep last values
+    end
+    
+    COORD->>ENT: Update data
+    ENT->>COORD: Display values
+```
+
+### Error Handling for Connection Failures
+
+```mermaid
+graph LR
+    A[Coordinator starts update] --> B{Connection to cloud?}
+    B -->|Success| C[Data received]
+    B -->|Error| D{Error count < 3?}
+    D -->|Yes| E[Keep last values]
+    D -->|No| F[Entities: unavailable]
+    E --> G[Warning in log]
+    C --> H[Entities updated]
+    G --> I[Next attempt in 180s]
+    F --> I
+    
+    style C fill:#4CAF50,color:#fff
+    style E fill:#FF9800,color:#fff
+    style F fill:#F44336,color:#fff
+```
+
+### Token Management
+
+```mermaid
+stateDiagram-v2
+    [*] --> TokenCreate: Login to cloud
+    TokenCreate --> TokenValid: Token stored
+    TokenValid --> TokenValid: API calls
+    TokenValid --> TokenRenew: > 23 hours
+    TokenRenew --> TokenValid: New login
+    TokenValid --> TokenInvalid: Auth error
+    TokenInvalid --> TokenCreate: Automatic re-login
+    TokenValid --> [*]: Integration unloaded
+```
+
+### Timing Overview
+
+| Step | Duration |
+|------|----------|
+| Temperature command sent | 1-3 seconds |
+| Cloud response received | Max. 15 seconds |
+| Heat pump responds | Unknown (vendor-dependent) |
+| Home Assistant shows new value | Up to 180 seconds (next poll) |
 
 ## Troubleshooting
 

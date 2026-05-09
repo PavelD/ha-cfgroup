@@ -124,9 +124,128 @@ hacs.json              HACS-Metadaten
 requirements-dev.txt   Test-Abhängigkeiten (pytest, aiohttp)
 ```
 
-## Archiv: alte Bash-/MQTT-Variante
+## Technische Architektur
 
-Die frühere Bash-/MQTT-Version (`api_cfgroup.sh` mit `config.sh`) liegt jetzt ausschließlich lokal im Ordner `archive/`. Dieser Ordner wird über `.gitignore` nicht nach GitHub synchronisiert und dient nur als persönliche Referenz.
+### System-Architektur
+
+```mermaid
+graph TD
+    HA[Home Assistant] -->|Config Flow| CF[Config Flow]
+    HA -->|Climate/Sensor/Switch| ENT[Entitäten]
+    ENT -->|Daten anfordern| COORD[Coordinator]
+    COORD -->|API-Aufrufe| API[API Client]
+    API -->|HTTP Requests| CLOUD[Linked-Go Cloud]
+    CLOUD -->|Steuerbefehle| WP[Wärmepumpe]
+    WP -->|Status| CLOUD
+    CLOUD -->|Antworten| API
+    API -->|Daten| COORD
+    COORD -->|Aktualisierung| ENT
+    ENT -->|Anzeige| HA
+    
+    style HA fill:#4CAF50,color:#fff
+    style CLOUD fill:#2196F3,color:#fff
+    style WP fill:#FF9800,color:#fff
+    style API fill:#9C27B0,color:#fff
+    style COORD fill:#673AB7,color:#fff
+```
+
+### Temperaturänderung - Befehlsfluss
+
+```mermaid
+sequenceDiagram
+    participant User as Nutzer
+    participant HA as Home Assistant
+    participant Climate as Climate Entity
+    participant API as API Client
+    participant Cloud as Linked-Go Cloud
+    participant WP as Wärmepumpe
+
+    User->>HA: Temperatur ändern (z.B. 28°C)
+    HA->>Climate: async_set_temperature()
+    Climate->>API: async_set_target_temperature(28°C)
+    API->>API: async_ensure_token()
+    API->>Cloud: POST device/control
+    Note over API,Cloud: Max. 15 Sekunden Timeout
+    Cloud->>Cloud: Befehl validieren
+    Cloud->>API: Bestätigung (success)
+    API->>Climate: Fertig
+    Climate->>HA: Status aktualisiert
+    Cloud->>WP: Temperatur 28°C senden
+    WP->>Cloud: Bestätigung
+```
+
+### Regelmäßiger Datenabruf
+
+```mermaid
+sequenceDiagram
+    participant COORD as Coordinator
+    participant API as API Client
+    participant Cloud as Linked-Go Cloud
+    participant ENT as Entitäten
+
+    Note over COORD: Alle 180 Sekunden
+    COORD->>COORD: _async_update_data()
+    COORD->>API: async_get_device_status()
+    API->>Cloud: GET device/getDeviceStatus
+    Cloud->>API: Status (ONLINE/OFFLINE)
+    
+    alt Gerät ONLINE
+        COORD->>API: async_get_heatpump_data()
+        API->>Cloud: POST device/getDataByCode
+        Cloud->>API: Temperaturen, Power, Mode
+        COORD->>API: async_get_fault_data()
+        API->>Cloud: POST device/getFaultDataByDeviceCode
+        Cloud->>API: Fehlerliste
+    else Gerät OFFLINE
+        Note over COORD: Keine Datenabfrage
+        COORD->>COORD: Letzte Werte behalten
+    end
+    
+    COORD->>ENT: Daten aktualisieren
+    ENT->>COORD: Werte anzeigen
+```
+
+### Fehlerbehandlung bei Verbindungsausfällen
+
+```mermaid
+graph LR
+    A[Coordinator startet Update] --> B{Verbindung zur Cloud?}
+    B -->|Erfolg| C[Daten empfangen]
+    B -->|Fehler| D{Fehlerzahl < 3?}
+    D -->|Ja| E[Letzte Werte behalten]
+    D -->|Nein| F[Entitäten: nicht verfügbar]
+    E --> G[Warnung im Log]
+    C --> H[Entitäten aktualisieren]
+    G --> I[Nächster Versuch in 180s]
+    F --> I
+    
+    style C fill:#4CAF50,color:#fff
+    style E fill:#FF9800,color:#fff
+    style F fill:#F44336,color:#fff
+```
+
+### Token-Management
+
+```mermaid
+stateDiagram-v2
+    [*] --> TokenErstellen: Login bei Cloud
+    TokenErstellen --> TokenGueltig: Token gespeichert
+    TokenGueltig --> TokenGueltig: API-Aufrufe
+    TokenGueltig --> TokenErneuern: > 23 Stunden
+    TokenErneuern --> TokenGueltig: Neuer Login
+    TokenGueltig --> TokenUngueltig: Auth-Fehler
+    TokenUngueltig --> TokenErstellen: Automatischer Re-Login
+    TokenGueltig --> [*]: Integration entladen
+```
+
+### Zeitübersicht
+
+| Schritt | Dauer |
+|---------|-------|
+| Temperatur-Befehl senden | 1-3 Sekunden |
+| Cloud-Antwort erhalten | Max. 15 Sekunden |
+| Wärmepumpe reagiert | Unbekannt (Hersteller-abhängig) |
+| Home Assistant zeigt neuen Wert | Bis zu 180 Sekunden (nächster Poll) |
 
 ## Fehlerbehebung
 
