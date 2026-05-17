@@ -304,7 +304,7 @@ def test_get_device_status_parses_online() -> None:
     client._token = "T"
     client._token_created_at = 0.0
 
-    status = _run(client.async_get_device_status("0C7FEDC2CFD5"))
+    status = _run(client.async_get_device_status("AABBCCDDEEFF"))
 
     assert isinstance(status, DeviceStatus)
     assert status.status == "ONLINE"
@@ -368,7 +368,7 @@ def test_get_fault_data_empty_returns_empty_list() -> None:
     client._token = "T"
     client._token_created_at = 0.0
 
-    faults = _run(client.async_get_fault_data("0C7FEDC2CFD5"))
+    faults = _run(client.async_get_fault_data("AABBCCDDEEFF"))
     assert faults == []
 
 
