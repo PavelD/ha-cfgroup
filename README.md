@@ -19,7 +19,10 @@ Manufacturer: [CF Group](https://www.cf.group/de/)
 ## Features
 
 - **Climate entity:** Heat pump exposed as a thermostat with `Heat`/`Off` and target temperature.
-- **Sensors:** Inlet, coil, ambient and target temperature plus operating mode.
+- **Sensors:** Inlet, outlet, coil, ambient, exhaust temperature plus operating mode and operating state (heating / defrost).
+- **Defrost detection:** Binary sensor turns `on` automatically during active defrost cycle (`dF` on the display).
+- **Fault detection:** Binary sensor with active fault codes (e.g. `E03 – Flow Switch Protection`) exposed as attributes.
+- **Cloud status:** Diagnostic sensor showing `Online` / `Offline`.
 - **Switch:** Dedicated power switch.
 - **Config flow:** Full setup through the Home Assistant UI.
 - **Options flow:** Polling interval can be adjusted later.

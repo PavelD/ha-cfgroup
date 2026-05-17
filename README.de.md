@@ -19,7 +19,10 @@ Hersteller: [CF Group](https://www.cf.group/de/)
 ## Funktionen
 
 - **Climate-Entity:** Wärmepumpe als Thermostat mit `Heat`/`Off` und Zieltemperatur.
-- **Sensoren:** Einlass-, Coil-, Umgebungs- und Zieltemperatur sowie Betriebsmodus.
+- **Sensoren:** Einlass-, Rücklauf-, Coil-, Umgebungs-, Ablufttemperatur sowie Betriebsmodus und Betriebszustand (Heizen / Abtauen).
+- **Abtau-Erkennung:** Binary-Sensor schaltet automatisch auf `an`, wenn die Pumpe abtaut (`dF` im Display).
+- **Störungserkennung:** Binary-Sensor mit aktiven Fehlercodes (z. B. `E03 – Flow Switch Protection`) als Attribut.
+- **Cloud-Status:** Diagnose-Sensor zeigt `Online` / `Offline`.
 - **Switch:** Separater Power-Schalter.
 - **Config Flow:** Einrichtung komplett über die Home-Assistant-Oberfläche.
 - **Options Flow:** Abfrage-Intervall nachträglich änderbar.
