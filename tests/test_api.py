@@ -372,6 +372,35 @@ def test_get_fault_data_empty_returns_empty_list() -> None:
     assert faults == []
 
 
+def test_get_fault_data_parses_camelcase_fault_code() -> None:
+    """Die echte Cloud-API liefert faultCode (camelCase) – muss erkannt werden."""
+    session = _FakeSession()
+    session.queue(
+        200,
+        {
+            "error_code": "0",
+            "isReusltSuc": True,
+            "objectResult": [
+                {
+                    "faultCode": "E03",
+                    "description": "Flow Switch Protection",
+                    "errorLevel": 3,
+                },
+            ],
+        },
+    )
+
+    client = _client(session)
+    client._token = "T"
+    client._token_created_at = 0.0
+
+    faults = _run(client.async_get_fault_data("X"))
+
+    assert len(faults) == 1
+    assert faults[0].code == "E03"
+    assert faults[0].description == "Flow Switch Protection"
+
+
 def test_get_fault_data_parses_entries_robustly() -> None:
     """Unbekanntes Schema: häufige Feldnamen werden erkannt, Rest in raw."""
     session = _FakeSession()
@@ -444,6 +473,20 @@ def test_has_fault_uses_device_status_flag() -> None:
     # Auch ohne Fault-Liste reicht das `is_fault`-Flag aus dem Status.
     assert data.faults == ()
     assert data.has_fault is True
+
+
+def test_is_defrosting_uses_state_mode_17() -> None:
+    data = HeatPumpData.empty()
+    data.raw_values["State_mode"] = "17"
+
+    assert data.is_defrosting is True
+
+
+def test_is_defrosting_is_false_for_normal_heat_mode() -> None:
+    data = HeatPumpData.empty()
+    data.raw_values["State_mode"] = "1"
+
+    assert data.is_defrosting is False
 
 
 def test_get_fault_data_invalid_payload_raises() -> None:

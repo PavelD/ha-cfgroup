@@ -9,6 +9,9 @@ archive/
 # einchecken kann.
 tools/
 
+# Rohdaten der Cloud-Diagnose (können Zugangsdaten-Tokens enthalten)
+probe_results/
+
 # Laufzeit-/Logdateien
 *.log
 
