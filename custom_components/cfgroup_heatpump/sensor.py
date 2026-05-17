@@ -20,6 +20,20 @@ from .api import HeatPumpData
 from .entity import CFGroupHeatPumpEntity
 
 
+_STATE_MODE_LABELS: dict[str, str] = {
+    "1": "heating",
+    "17": "defrost",
+}
+
+
+def _state_mode_label(data: HeatPumpData) -> str | None:
+    """Gibt den lesbaren Betriebszustand zurück, None bei unbekanntem Wert."""
+    raw = data.raw_values.get("State_mode")
+    if raw is None or raw == "":
+        return None
+    return _STATE_MODE_LABELS.get(str(raw))
+
+
 def _cloud_status_value(data: HeatPumpData) -> str | None:
     """Liest den Online-/Offline-Status aus den Daten als kleingeschriebener String."""
     status = data.device_status
@@ -73,6 +87,24 @@ TEMPERATURE_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
         value_fn=lambda data: data.target_temperature,
     ),
     CFGroupSensorEntityDescription(
+        key="outlet_temperature",
+        translation_key="outlet_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.outlet_temperature,
+    ),
+    CFGroupSensorEntityDescription(
+        key="exhaust_temperature",
+        translation_key="exhaust_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.exhaust_temperature,
+    ),
+    CFGroupSensorEntityDescription(
         key="mode",
         translation_key="mode",
         value_fn=lambda data: data.mode,
@@ -81,6 +113,14 @@ TEMPERATURE_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
 
 
 DIAGNOSTIC_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
+    CFGroupSensorEntityDescription(
+        key="state_mode",
+        translation_key="state_mode",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(_STATE_MODE_LABELS.values()),
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=_state_mode_label,
+    ),
     CFGroupSensorEntityDescription(
         key="cloud_status",
         translation_key="cloud_status",

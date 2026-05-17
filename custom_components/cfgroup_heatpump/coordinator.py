@@ -81,13 +81,12 @@ class CFGroupHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpData]):
 
         Strategie:
         * Vorab den schlanken `getDeviceStatus`-Endpoint anfragen.
-          Meldet die Cloud das Gerät als OFFLINE, wird `getDataByCode`
-          übersprungen und der letzte Cache mit aktualisiertem Status
-          zurückgegeben. Beim allerersten Update ohne Cache liefert die
-          Methode einen leeren `HeatPumpData`, damit die Diagnose-Sensoren
-          (Cloud-Status, Störung) trotzdem korrekt sind.
+          Bei OFFLINE wird `getDataByCode` übersprungen und der letzte
+          Cache mit aktualisiertem Status zurückgegeben. Beim allerersten
+          Update ohne Cache liefert die Methode einen leeren `HeatPumpData`,
+          damit Diagnose-Sensoren (Cloud-Status, Störung) korrekt sind.
         * Bei ONLINE läuft der bestehende Pfad: `getDataByCode` für die
-          eigentlichen Messwerte, plus parallele Diagnose-Daten.
+          eigentlichen Messwerte, plus Diagnose-Daten.
         * Auth-Fehler nach erfolglosem Re-Login → ConfigEntryAuthFailed
           (löst den Reauth-Flow von Home Assistant aus).
         * Verbindungs-/Antwort-Fehler werden bis zu
@@ -100,7 +99,6 @@ class CFGroupHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpData]):
 
         device_status = await self._async_fetch_status_safely()
 
-        # Offline-Shortcut: keine teure Datenabfrage, aber Diagnose aktuell halten.
         if device_status is not None and not device_status.is_online:
             _LOGGER.debug(
                 "Cloud meldet Gerät als '%s'; getDataByCode wird übersprungen.",

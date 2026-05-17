@@ -23,7 +23,12 @@ async def async_setup_entry(
 ) -> None:
     """Richtet alle Binary-Sensoren für einen Config Entry ein."""
     coordinator = entry.runtime_data
-    async_add_entities([CFGroupHeatPumpFaultSensor(coordinator)])
+    async_add_entities(
+        [
+            CFGroupHeatPumpFaultSensor(coordinator),
+            CFGroupHeatPumpDefrostSensor(coordinator),
+        ]
+    )
 
 
 class CFGroupHeatPumpFaultSensor(CFGroupHeatPumpEntity, BinarySensorEntity):
@@ -68,3 +73,22 @@ class CFGroupHeatPumpFaultSensor(CFGroupHeatPumpEntity, BinarySensorEntity):
                 for fault in data.faults
             ]
         }
+
+
+class CFGroupHeatPumpDefrostSensor(CFGroupHeatPumpEntity, BinarySensorEntity):
+    """Zeigt an, ob die Wärmepumpe gerade abtaut."""
+
+    _attr_translation_key = "defrost"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_code}_defrost"
+
+    @property
+    def is_on(self) -> bool | None:
+        """True bei aktiver Abtauung, None wenn noch keine Daten vorliegen."""
+        data = self.coordinator.data
+        if data is None:
+            return None
+        return data.is_defrosting

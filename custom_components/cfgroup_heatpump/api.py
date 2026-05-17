@@ -44,6 +44,7 @@ class CFGroupResponseError(CFGroupApiError):
 # wenn das Gerät online ist. Alle anderen Werte (z. B. "OFFLINE") werden als
 # offline interpretiert.
 DEVICE_STATUS_ONLINE = "ONLINE"
+DEFROST_STATE_MODE = "17"
 
 
 @dataclass(frozen=True)
@@ -88,8 +89,10 @@ class HeatPumpData:
     mode: str | None
     mode_state: str | None
     inlet_temperature: float | None
+    outlet_temperature: float | None
     coil_temperature: float | None
     ambient_temperature: float | None
+    exhaust_temperature: float | None
     target_temperature: float | None
     min_temperature: float | None
     max_temperature: float | None
@@ -115,8 +118,10 @@ class HeatPumpData:
             mode=None,
             mode_state=None,
             inlet_temperature=None,
+            outlet_temperature=None,
             coil_temperature=None,
             ambient_temperature=None,
+            exhaust_temperature=None,
             target_temperature=None,
             min_temperature=None,
             max_temperature=None,
@@ -136,6 +141,11 @@ class HeatPumpData:
         if self.device_status is not None and self.device_status.is_fault:
             return True
         return bool(self.faults)
+
+    @property
+    def is_defrosting(self) -> bool:
+        """True, wenn der Live-Betriebszustand der Cloud Abtauung meldet."""
+        return _to_optional_string(self.raw_values.get("State_mode")) == DEFROST_STATE_MODE
 
 
 class CFGroupAsyncClient:
@@ -249,8 +259,10 @@ class CFGroupAsyncClient:
             mode=_to_optional_string(values.get("Mode")),
             mode_state=_to_optional_string(values.get("ModeState")),
             inlet_temperature=_to_optional_float(values.get("T02")),
+            outlet_temperature=_to_optional_float(values.get("T03")),
             coil_temperature=_to_optional_float(values.get("T04")),
             ambient_temperature=_to_optional_float(values.get("T05")),
+            exhaust_temperature=_to_optional_float(values.get("T06")),
             target_temperature=_to_optional_float(values.get("R01")),
             min_temperature=_to_optional_float(values.get("R04")),
             max_temperature=_to_optional_float(values.get("R05")),
@@ -312,7 +324,8 @@ class CFGroupAsyncClient:
             faults.append(
                 FaultEntry(
                     code=_to_optional_string(
-                        item.get("fault_code")
+                        item.get("faultCode")
+                        or item.get("fault_code")
                         or item.get("code")
                         or item.get("error_code")
                     ),

@@ -68,8 +68,21 @@
       "target_temperature": {
         "name": "Target temperature"
       },
+      "outlet_temperature": {
+        "name": "Outlet temperature"
+      },
+      "exhaust_temperature": {
+        "name": "Exhaust temperature"
+      },
       "mode": {
         "name": "Operating mode"
+      },
+      "state_mode": {
+        "name": "Operating state",
+        "state": {
+          "heating": "Heating",
+          "defrost": "Defrost"
+        }
       },
       "cloud_status": {
         "name": "Cloud status",

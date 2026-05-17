@@ -68,6 +68,12 @@
       "target_temperature": {
         "name": "Zieltemperatur"
       },
+      "outlet_temperature": {
+        "name": "Rücklauftemperatur"
+      },
+      "exhaust_temperature": {
+        "name": "Abluftemperatur"
+      },
       "mode": {
         "name": "Betriebsmodus"
       },
@@ -77,11 +83,21 @@
           "online": "Online",
           "offline": "Offline"
         }
+      },
+      "state_mode": {
+        "name": "Betriebszustand",
+        "state": {
+          "heating": "Heizen",
+          "defrost": "Abtauen"
+        }
       }
     },
     "binary_sensor": {
       "fault": {
         "name": "Störung"
+      },
+      "defrost": {
+        "name": "Abtauung"
       }
     },
     "switch": {
