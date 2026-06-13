@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0] - 2026-06-13
+
+### Added
+- **`hvac_action` property**: climate entity now reports `heating` / `defrosting` / `idle` / `off` to HomeAssistant — the thermostat card shows the coloured heating indicator (orange ring) when the heat pump is actively heating
+
 ## [0.4.0] - 2026-05-17
 
 ### Added

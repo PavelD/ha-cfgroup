@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
+    HVACAction,
     HVACMode,
 )
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
@@ -52,6 +53,19 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
         if data is None or data.power is None:
             return None
         return HVACMode.HEAT if data.is_on else HVACMode.OFF
+
+    @property
+    def hvac_action(self) -> HVACAction | None:
+        """Gibt zurück, ob die Wärmepumpe gerade aktiv heizt."""
+        data = self.coordinator.data
+        if data is None or not data.is_on:
+            return HVACAction.OFF
+        state = data.raw_values.get("State_mode")
+        if state == "1":
+            return HVACAction.HEATING
+        if state == "17":
+            return HVACAction.DEFROSTING
+        return HVACAction.IDLE
 
     @property
     def current_temperature(self) -> float | None:
