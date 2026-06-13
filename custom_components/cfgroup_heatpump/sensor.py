@@ -25,13 +25,28 @@ _STATE_MODE_LABELS: dict[str, str] = {
     "17": "defrost",
 }
 
+_STATE_MODE_OPTIONS: list[str] = [*list(_STATE_MODE_LABELS.values()), "idle"]
+
 
 def _state_mode_label(data: HeatPumpData) -> str | None:
-    """Gibt den lesbaren Betriebszustand zurück, None bei unbekanntem Wert."""
+    """Gibt den lesbaren Betriebszustand zurück."""
     raw = data.raw_values.get("State_mode")
     if raw is None or raw == "":
+        if data.is_on:
+            return "idle"
         return None
-    return _STATE_MODE_LABELS.get(str(raw))
+    state_str = str(raw)
+    if state_str == "1":
+        inlet = data.inlet_temperature
+        target = data.target_temperature
+        if inlet is not None and target is not None and inlet >= target:
+            return "idle"
+    label = _STATE_MODE_LABELS.get(state_str)
+    if label is not None:
+        return label
+    if data.is_on:
+        return "idle"
+    return None
 
 
 def _cloud_status_value(data: HeatPumpData) -> str | None:
@@ -117,7 +132,7 @@ DIAGNOSTIC_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
         key="state_mode",
         translation_key="state_mode",
         device_class=SensorDeviceClass.ENUM,
-        options=list(_STATE_MODE_LABELS.values()),
+        options=_STATE_MODE_OPTIONS,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_state_mode_label,
     ),

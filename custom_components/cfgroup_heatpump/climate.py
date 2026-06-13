@@ -62,6 +62,10 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
             return HVACAction.OFF
         state = data.raw_values.get("State_mode")
         if state == "1":
+            inlet = data.inlet_temperature
+            target = data.target_temperature
+            if inlet is not None and target is not None and inlet >= target:
+                return HVACAction.IDLE
             return HVACAction.HEATING
         if state == "17":
             return HVACAction.DEFROSTING

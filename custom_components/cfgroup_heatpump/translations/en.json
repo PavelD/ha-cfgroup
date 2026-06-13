@@ -81,7 +81,8 @@
         "name": "Operating state",
         "state": {
           "heating": "Heating",
-          "defrost": "Defrost"
+          "defrost": "Defrost",
+          "idle": "Idle"
         }
       },
       "cloud_status": {

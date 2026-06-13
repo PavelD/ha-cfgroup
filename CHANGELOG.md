@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2026-06-13
+
+### Added
+- **Idle detection**: climate entity (`hvac_action`) now reports `idle` instead of `heating` when the target temperature is reached — the thermostat correctly shows the idle state (no orange ring) when the pump is on but not actively heating
+- **Operating state sensor**: new state `idle` is shown when the pump is on but target temperature is reached or `State_mode` is unknown
+
+### Translations
+- German: `idle` → `Leerlauf`
+- English: `idle` → `Idle`
+
 ## [0.5.0] - 2026-06-13
 
 ### Added
