@@ -1,0 +1,24 @@
+name: Hassfest Action
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  hacs:
+    if: "!startsWith(github.event.head_commit.message, 'Update manifest version to')"
+    name: Hassfest Action
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: "actions/checkout@v4"
+
+      - name: Run Hassfest
+        uses: home-assistant/actions/hassfest@master

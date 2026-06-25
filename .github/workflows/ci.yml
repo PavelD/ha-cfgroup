@@ -1,0 +1,55 @@
+name: I
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'custom_components/**'
+      - 'tests/**'
+  pull_request:
+    paths:
+      - 'custom_components/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+jobs:
+  black:
+    if: "!startsWith(github.event.head_commit.message, 'Update manifest version to')"
+    name: Python Code Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code from GitHub
+        uses: "actions/checkout@v3"
+      - name: Black Code Format Check
+        uses: lgeiger/black-action@master
+        with:
+          args: ". --check --fast --diff"
+
+  tests:
+    if: "!startsWith(github.event.head_commit.message, 'Update manifest version to')"
+    runs-on: ubuntu-latest
+    name: Test Integration
+
+    strategy:
+      matrix:
+        python-version: [3.11]  # HA recomendation of Python 3.11
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements_tests.txt
+
+    - name: Run tests with coverage
+      run: |
+        pytest --cov=custom_components/storyflow --cov-report=term-missing --cov-fail-under=0 tests/
