@@ -20,6 +20,7 @@ from cfgroup_heatpump.api import (
     DeviceStatus,
     FaultEntry,
     HeatPumpData,
+    _coalesce_float,
     _looks_like_auth_error,
 )
 
@@ -519,3 +520,208 @@ def test_request_propagates_connection_error_unchanged() -> None:
     # Genau ein Call: kein Re-Login-Versuch nach Verbindungsfehlern.
     assert len(session.calls) == 1
     assert client._token == "VALID"
+
+
+# --------------------------------------------------------------------------- #
+# _coalesce_float
+# --------------------------------------------------------------------------- #
+
+def test_coalesce_float_returns_first_non_none() -> None:
+    values = {"T02": "28.5", "T2": "99.0"}
+    assert _coalesce_float(values, "T02", "T2") == 28.5
+
+
+def test_coalesce_float_falls_back_to_second_key() -> None:
+    """Wenn T02 leer ist (TEP0004-Verhalten), soll T2 genutzt werden."""
+    values = {"T02": "", "T2": "26.0"}
+    assert _coalesce_float(values, "T02", "T2") == 26.0
+
+
+def test_coalesce_float_handles_zero_celsius() -> None:
+    """0,0 °C ist ein gültiger Wert und darf nicht als fehlend behandelt werden."""
+    values = {"T02": "0.0", "T2": "99.0"}
+    assert _coalesce_float(values, "T02", "T2") == 0.0
+
+
+def test_coalesce_float_returns_none_when_all_missing() -> None:
+    values: dict[str, Any] = {}
+    assert _coalesce_float(values, "T02", "T2") is None
+
+
+# --------------------------------------------------------------------------- #
+# async_get_heatpump_data – TEP0001 vs TEP0004 parsing
+# --------------------------------------------------------------------------- #
+
+def _data_payload(codes: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Baut ein getDataByCode-Antwort-Payload aus Code/Wert-Paaren."""
+    return {
+        "error_code": "0",
+        "isReusltSuc": True,
+        "objectResult": [{"code": c, "value": v} for c, v in codes],
+    }
+
+
+def test_get_heatpump_data_tep0001_uses_T02_codes() -> None:
+    """TEP0001: Temperaturen kommen aus T02/T04/T05 (mit führender Null)."""
+    session = _FakeSession()
+    session.queue(
+        200,
+        _data_payload([
+            ("Power", "1"),
+            ("Mode", "1"),
+            ("R01", "28.0"),
+            ("R04", "15.0"),
+            ("R05", "40.0"),
+            ("T02", "25.5"),
+            ("T03", "26.0"),
+            ("T04", "30.0"),
+            ("T05", "22.0"),
+            ("T06", ""),
+        ]),
+    )
+    client = _client(session)
+    client._token = "T"
+    client._token_created_at = 0.0
+
+    data = _run(client.async_get_heatpump_data("DEV"))
+
+    assert data.is_on is True
+    assert data.target_temperature == 28.0
+    assert data.min_temperature == 15.0
+    assert data.max_temperature == 40.0
+    assert data.inlet_temperature == 25.5
+    assert data.outlet_temperature == 26.0
+    assert data.coil_temperature == 30.0
+    assert data.ambient_temperature == 22.0
+    assert data.exhaust_temperature is None
+    # TEP0004-Felder: R02/R03/T1 nicht gesetzt → None
+    assert data.heating_temperature is None
+    assert data.auto_temperature is None
+    assert data.return_air_temperature is None
+
+
+def test_get_heatpump_data_tep0004_uses_short_T_codes() -> None:
+    """TEP0004: Temperaturen kommen aus T2–T5 (ohne führende Null)."""
+    session = _FakeSession()
+    session.queue(
+        200,
+        _data_payload([
+            ("Power", "1"),
+            ("Mode", "0"),   # 0 = Kühlen
+            ("R01", "27.0"),  # Kühl-Sollwert
+            ("R02", "35.0"),  # Heiz-Sollwert
+            ("R03", "30.0"),  # Automatik-Sollwert
+            # T01–T06 sind für TEP0004 leer
+            ("T01", ""), ("T02", ""), ("T03", ""), ("T04", ""), ("T05", ""), ("T06", ""),
+            # TEP0004 nutzt T1–T5 (ohne Null)
+            ("T1", "20.0"),  # Rückluftemperatur
+            ("T2", "26.5"),  # Einlass
+            ("T3", "27.0"),  # Auslass
+            ("T4", "31.0"),  # Coil
+            ("T5", "23.0"),  # Ambient
+        ]),
+    )
+    client = _client(session)
+    client._token = "T"
+    client._token_created_at = 0.0
+
+    data = _run(client.async_get_heatpump_data("DEV"))
+
+    assert data.is_on is True
+    assert data.mode == "0"
+    # Temperatursensoren kommen aus kurzen Codes
+    assert data.inlet_temperature == 26.5
+    assert data.outlet_temperature == 27.0
+    assert data.coil_temperature == 31.0
+    assert data.ambient_temperature == 23.0
+    # TEP0004-Sollwerte
+    assert data.cooling_temperature == 27.0
+    assert data.heating_temperature == 35.0
+    assert data.auto_temperature == 30.0
+    assert data.return_air_temperature == 20.0
+
+
+# --------------------------------------------------------------------------- #
+# Neue Steuer-Methoden: async_set_mode / heating_temperature / auto_temperature
+# --------------------------------------------------------------------------- #
+
+def _control_success() -> dict[str, Any]:
+    return {"error_code": "0", "isReusltSuc": True, "objectResult": None}
+
+
+def test_async_set_mode_sends_correct_protocol_code() -> None:
+    """async_set_mode schreibt Mode=0/1/2 an die Cloud."""
+    session = _FakeSession()
+    session.queue(200, _control_success())
+
+    client = _client(session)
+    client._token = "T"
+    client._token_created_at = 0.0
+
+    _run(client.async_set_mode("DEV", "0"))  # 0 = Kühlen
+
+    assert len(session.calls) == 1
+    params = session.calls[0]["json"]["param"][0]
+    assert params["protocolCode"] == "Mode"
+    assert params["value"] == "0"
+    assert params["deviceCode"] == "DEV"
+
+
+def test_async_set_heating_temperature_writes_R02() -> None:
+    session = _FakeSession()
+    session.queue(200, _control_success())
+
+    client = _client(session)
+    client._token = "T"
+    client._token_created_at = 0.0
+
+    _run(client.async_set_heating_temperature("DEV", 35.0))
+
+    params = session.calls[0]["json"]["param"][0]
+    assert params["protocolCode"] == "R02"
+    assert params["value"] == "35"
+
+
+def test_async_set_auto_temperature_writes_R03() -> None:
+    session = _FakeSession()
+    session.queue(200, _control_success())
+
+    client = _client(session)
+    client._token = "T"
+    client._token_created_at = 0.0
+
+    _run(client.async_set_auto_temperature("DEV", 28.5))
+
+    params = session.calls[0]["json"]["param"][0]
+    assert params["protocolCode"] == "R03"
+    assert params["value"] == "28.5"
+
+
+def test_async_set_target_temperature_still_writes_R01() -> None:
+    """Rückwärtskompatibilität: TEP0001 nutzt weiterhin R01."""
+    session = _FakeSession()
+    session.queue(200, _control_success())
+
+    client = _client(session)
+    client._token = "T"
+    client._token_created_at = 0.0
+
+    _run(client.async_set_target_temperature("DEV", 30.0))
+
+    params = session.calls[0]["json"]["param"][0]
+    assert params["protocolCode"] == "R01"
+    assert params["value"] == "30"
+
+
+# --------------------------------------------------------------------------- #
+# HeatPumpData – TEP0004-spezifische Felder
+# --------------------------------------------------------------------------- #
+
+def test_heatpump_data_empty_tep0004_fields_are_none() -> None:
+    """HeatPumpData.empty() liefert None für alle TEP0004-spezifischen Felder."""
+    data = HeatPumpData.empty()
+
+    assert data.cooling_temperature is None
+    assert data.heating_temperature is None
+    assert data.auto_temperature is None
+    assert data.return_air_temperature is None
