@@ -144,7 +144,9 @@ async def async_setup_entry(
     if model_type == MODEL_TEP0004:
         # TEP0004: replace the generic target_temperature with three mode-specific sensors
         temp_descriptions = tuple(
-            d for d in TEMPERATURE_DESCRIPTIONS if d is not _TARGET_TEMPERATURE_DESCRIPTION
+            d
+            for d in TEMPERATURE_DESCRIPTIONS
+            if d is not _TARGET_TEMPERATURE_DESCRIPTION
         )
         extra: tuple[CFGroupSensorEntityDescription, ...] = (
             *_TEP0004_TARGET_TEMP_DESCRIPTIONS,
