@@ -18,8 +18,8 @@ Manufacturer: [CF Group](https://www.cf.group/de/)
 
 ## Features
 
-- **Climate entity:** Heat pump exposed as a thermostat with `Heat`/`Off` and target temperature.
-- **Sensors:** Inlet, outlet, coil, ambient, exhaust temperature plus operating mode and operating state (heating / defrost).
+- **Climate entity:** Heat pump exposed as a thermostat. TEP0001: `Heat`/`Off`. TEP0004: `Heat`/`Cool`/`Auto`/`Off` with per-mode target temperatures.
+- **Sensors:** Inlet, outlet, coil, ambient, exhaust temperature plus operating mode and operating state (heating / cooling / defrost). TEP0004 also exposes a return air temperature sensor.
 - **Defrost detection:** Binary sensor turns `on` automatically during active defrost cycle (`dF` on the display).
 - **Fault detection:** Binary sensor with active fault codes (e.g. `E03 – Flow Switch Protection`) exposed as attributes.
 - **Cloud status:** Diagnostic sensor showing `Online` / `Offline`.
@@ -36,35 +36,56 @@ Manufacturer: [CF Group](https://www.cf.group/de/)
 
 ## Tested hardware
 
-This integration has been developed and tested **only with the `CF Pool Heat Pump SMART PLUS 3 kW`**.
+| Model | Description | Supported |
+|-------|-------------|-----------|
+| `CF Pool Heat Pump SMART PLUS 3 kW` | Heating only | ✅ TEP0001 |
+| `CF PROFI 8 kW` | Heating + Cooling + Auto | ✅ TEP0004 |
 
-> ⚠️ **Important safety note:** The Linked-Go cloud is shared by many different heat-pump models, and vendors do **not** assign the technical codes (e.g. `R01`, `R04`, `Mode`, `Power`) consistently across models. On a different model the same code may have a completely different meaning or value range. Using this integration on a model other than the tested one **without verification** can therefore cause incorrect values to be written to the device — up to and including damage to the unit or safety hazards.
+> ⚠️ **Important safety note:** The Linked-Go cloud is shared by many different heat-pump models, and vendors do **not** assign the technical codes (e.g. `R01`, `R04`, `Mode`, `Power`) consistently across models. On a different model the same code may have a completely different meaning or value range. Using this integration on a model other than the tested ones **without verification** can therefore cause incorrect values to be written to the device — up to and including damage to the unit or safety hazards.
 >
-> **Before first use, please verify the meaning of the codes in the vendor app:**
->
-> 1. Open the Aquatemp app and select your device.
-> 2. Open `Device settings → Device parameters`.
-> 3. Compare the codes shown under `Status parameters` (read-only values) and `Control parameters` (e.g. code `066`) with the values in the table below.
-> 4. If `R01` (target temperature), `R04`/`R05` (min/max), `T02`/`T04`/`T05` (temperatures), `Power` and `Mode` do **not** match, **do not use** the integration with that device and please open an issue.
+> **Before first use, please verify the meaning of the codes in the vendor app and compare with the tables below.**
 
 ## Protocol codes
 
-The cloud API uses technical codes. These are used internally by the integration. The table below applies to the `CF Pool Heat Pump SMART PLUS 3 kW` and may differ on other models (see [Tested hardware](#tested-hardware)):
+The cloud API uses technical codes. These may differ between models — always verify before use.
 
-### Temperatures
+### TEP0001 – Heating only (e.g. CF Pool Heat Pump SMART PLUS 3 kW)
 
-- **`R01`:** Target temperature.
+#### Temperatures
+
+- **`R01`:** Target temperature (heating setpoint).
 - **`R04`:** Minimum heating temperature.
 - **`R05`:** Maximum heating temperature.
-- **`T02`:** Inlet temperature.
+- **`T02`:** Inlet water temperature.
 - **`T04`:** Coil temperature.
 - **`T05`:** Ambient temperature.
 
-### Control
+#### Control
 
-- **`Power`:** On/Off, where `0` means off and `1` means on.
-- **`Mode`:** Operating mode.
+- **`Power`:** On/Off — `0` = off, `1` = on.
+- **`Mode`:** Operating mode (heating only).
 - **`ModeState`:** Status of the current operating mode.
+
+---
+
+### TEP0004 – Heating / Cooling / Auto (e.g. CF PROFI 8 kW)
+
+#### Temperatures
+
+- **`R01`:** Cooling setpoint.
+- **`R02`:** Heating setpoint.
+- **`R03`:** Auto mode setpoint.
+- **`T1`:** Return air temperature.
+- **`T2`:** Inlet water temperature.
+- **`T3`:** Outlet water temperature.
+- **`T4`:** Coil temperature.
+- **`T5`:** Ambient temperature.
+
+#### Control
+
+- **`Power`:** On/Off — `0` = off, `1` = on.
+- **`Mode`:** Operating mode — `0` = cooling, `1` = heating, `2` = auto.
+- **`State_mode`:** Active operating state — `0` = cooling, `1` = heating.
 
 ## Installation
 

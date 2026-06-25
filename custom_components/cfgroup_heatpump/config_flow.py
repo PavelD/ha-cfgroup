@@ -6,9 +6,15 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import selector
 
 from .api import (
     CFGroupApiError,
@@ -18,6 +24,7 @@ from .api import (
 )
 from .const import (
     CONF_CLOUD_URL,
+    CONF_MODEL_TYPE,
     CONF_PASSWORD,
     CONF_UPDATE_INTERVAL,
     CONF_USERNAME,
@@ -25,6 +32,21 @@ from .const import (
     DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     MIN_UPDATE_INTERVAL,
+    MODEL_TEP0001,
+    MODEL_TEP0004,
+)
+
+_MODEL_SELECTOR = selector.SelectSelector(
+    selector.SelectSelectorConfig(
+        options=[
+            selector.SelectOptionDict(
+                value=MODEL_TEP0001, label="TEP0001 – Heating only (pool heat pump)"
+            ),
+            selector.SelectOptionDict(
+                value=MODEL_TEP0004, label="TEP0004 – Heating / Cooling / Auto"
+            ),
+        ],
+    )
 )
 
 STEP_USER_SCHEMA = vol.Schema(
@@ -32,6 +54,7 @@ STEP_USER_SCHEMA = vol.Schema(
         vol.Required(CONF_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
         vol.Optional(CONF_CLOUD_URL, default=DEFAULT_CLOUD_URL): str,
+        vol.Optional(CONF_MODEL_TYPE, default=MODEL_TEP0001): _MODEL_SELECTOR,
     }
 )
 
@@ -48,6 +71,10 @@ def _build_reconfigure_schema(entry: ConfigEntry) -> vol.Schema:
                 CONF_CLOUD_URL,
                 default=entry.data.get(CONF_CLOUD_URL, DEFAULT_CLOUD_URL),
             ): str,
+            vol.Optional(
+                CONF_MODEL_TYPE,
+                default=entry.data.get(CONF_MODEL_TYPE, MODEL_TEP0001),
+            ): _MODEL_SELECTOR,
         }
     )
 
@@ -106,6 +133,7 @@ class CFGroupHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_USERNAME: user_input[CONF_USERNAME],
                         CONF_PASSWORD: user_input[CONF_PASSWORD],
                         CONF_CLOUD_URL: cloud_url,
+                        CONF_MODEL_TYPE: user_input.get(CONF_MODEL_TYPE, MODEL_TEP0001),
                     },
                 )
 
@@ -115,9 +143,7 @@ class CFGroupHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Wird von HA ausgelöst, wenn der Coordinator ConfigEntryAuthFailed wirft."""
         return await self.async_step_reauth_confirm()
 
@@ -189,6 +215,7 @@ class CFGroupHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_USERNAME: user_input[CONF_USERNAME],
                         CONF_PASSWORD: user_input[CONF_PASSWORD],
                         CONF_CLOUD_URL: cloud_url,
+                        CONF_MODEL_TYPE: user_input.get(CONF_MODEL_TYPE, MODEL_TEP0001),
                     },
                 )
 

@@ -15,7 +15,19 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import CFGroupConfigEntry
-from .const import FALLBACK_MAX_TEMP, FALLBACK_MIN_TEMP, TEMP_STEP
+from .const import (
+    CONF_MODEL_TYPE,
+    FALLBACK_MAX_TEMP,
+    FALLBACK_MAX_TEMP_TEP0004,
+    FALLBACK_MIN_TEMP,
+    FALLBACK_MIN_TEMP_TEP0004,
+    MODE_AUTO,
+    MODE_COOLING,
+    MODE_HEATING,
+    MODEL_TEP0001,
+    MODEL_TEP0004,
+    TEMP_STEP,
+)
 from .entity import CFGroupHeatPumpEntity
 
 
@@ -26,25 +38,41 @@ async def async_setup_entry(
 ) -> None:
     """Richtet die Climate-Entity für einen Config Entry ein."""
     coordinator = entry.runtime_data
-    async_add_entities([CFGroupHeatPumpClimate(coordinator)])
+    model_type = entry.data.get(CONF_MODEL_TYPE, MODEL_TEP0001)
+    async_add_entities([CFGroupHeatPumpClimate(coordinator, model_type)])
 
 
 class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
-    """Steuert die Wärmepumpe als Heizung über das Climate-Interface."""
+    """Steuert die Wärmepumpe über das Climate-Interface.
+
+    TEP0001: Nur Heizen (HVACMode.HEAT / HVACMode.OFF).
+    TEP0004: Kühlen (COOL), Heizen (HEAT), Automatik (HEAT_COOL) und Aus (OFF).
+    """
 
     _attr_translation_key = "heatpump"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = TEMP_STEP
-    _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TURN_OFF
     )
 
-    def __init__(self, coordinator) -> None:
+    def __init__(self, coordinator, model_type: str = MODEL_TEP0001) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{self._device_code}_climate"
+        self._model_type = model_type
+        self._last_on_mode: HVACMode | None = None
+
+        if model_type == MODEL_TEP0004:
+            self._attr_hvac_modes = [
+                HVACMode.OFF,
+                HVACMode.COOL,
+                HVACMode.HEAT,
+                HVACMode.HEAT_COOL,
+            ]
+        else:
+            self._attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
 
     @property
     def hvac_mode(self) -> HVACMode | None:
@@ -52,23 +80,50 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
         data = self.coordinator.data
         if data is None or data.power is None:
             return None
-        return HVACMode.HEAT if data.is_on else HVACMode.OFF
+        if not data.is_on:
+            return HVACMode.OFF
+
+        if self._model_type == MODEL_TEP0004:
+            mode = data.mode
+            if mode == MODE_COOLING:
+                return HVACMode.COOL
+            if mode == MODE_HEATING:
+                return HVACMode.HEAT
+            if mode == MODE_AUTO:
+                return HVACMode.HEAT_COOL
+            # Unbekannter Modus – sicher als HEAT behandeln
+            return HVACMode.HEAT
+
+        return HVACMode.HEAT
 
     @property
     def hvac_action(self) -> HVACAction | None:
-        """Gibt zurück, ob die Wärmepumpe gerade aktiv heizt."""
+        """Gibt zurück, ob die Wärmepumpe gerade aktiv heizt, kühlt usw."""
         data = self.coordinator.data
         if data is None or not data.is_on:
             return HVACAction.OFF
+
         state = data.raw_values.get("State_mode")
+
+        # Abtauung hat immer Vorrang
+        if state == "17":
+            return HVACAction.DEFROSTING
+
+        if self._model_type == MODEL_TEP0004:
+            if state == MODE_COOLING:
+                return HVACAction.COOLING
+            if state == MODE_HEATING:
+                return HVACAction.HEATING
+            return HVACAction.IDLE
+
+        # TEP0001-Logik: State_mode "1" = Heizen (mit Idle-Erkennung)
         if state == "1":
             inlet = data.inlet_temperature
             target = data.target_temperature
             if inlet is not None and target is not None and inlet >= target:
                 return HVACAction.IDLE
             return HVACAction.HEATING
-        if state == "17":
-            return HVACAction.DEFROSTING
+
         return HVACAction.IDLE
 
     @property
@@ -81,15 +136,29 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
 
     @property
     def target_temperature(self) -> float | None:
-        """Gibt die gewünschte Zieltemperatur zurück."""
+        """Gibt den aktiven Sollwert abhängig vom Betriebsmodus zurück."""
         data = self.coordinator.data
         if data is None:
             return None
+
+        if self._model_type == MODEL_TEP0004:
+            mode = data.mode
+            if mode == MODE_COOLING:
+                return data.cooling_temperature
+            if mode == MODE_HEATING:
+                return data.heating_temperature
+            if mode == MODE_AUTO:
+                return data.auto_temperature
+            return data.cooling_temperature  # Fallback
+
         return data.target_temperature
 
     @property
     def min_temp(self) -> float:
         """Gibt die untere Grenze für die Zieltemperatur zurück."""
+        if self._model_type == MODEL_TEP0004:
+            return FALLBACK_MIN_TEMP_TEP0004
+
         data = self.coordinator.data
         if data is not None and data.min_temperature is not None:
             return data.min_temperature
@@ -98,15 +167,41 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
     @property
     def max_temp(self) -> float:
         """Gibt die obere Grenze für die Zieltemperatur zurück."""
+        if self._model_type == MODEL_TEP0004:
+            return FALLBACK_MAX_TEMP_TEP0004
+
         data = self.coordinator.data
         if data is not None and data.max_temperature is not None:
             return data.max_temperature
         return FALLBACK_MAX_TEMP
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        """Schaltet die Wärmepumpe ein oder aus."""
-        enabled = hvac_mode == HVACMode.HEAT
-        await self.coordinator.client.async_set_power(self._device_code, enabled)
+        """Schaltet die Wärmepumpe ein/aus oder wechselt den Betriebsmodus."""
+        if hvac_mode == HVACMode.OFF:
+            await self.coordinator.client.async_set_power(self._device_code, False)
+        else:
+            # Merke den letzten aktiven Modus für async_turn_on
+            self._last_on_mode = hvac_mode
+
+            # Einschalten, falls die Pumpe aus ist
+            data = self.coordinator.data
+            if data is not None and not data.is_on:
+                await self.coordinator.client.async_set_power(self._device_code, True)
+
+            if self._model_type == MODEL_TEP0004:
+                if hvac_mode == HVACMode.COOL:
+                    await self.coordinator.client.async_set_mode(
+                        self._device_code, MODE_COOLING
+                    )
+                elif hvac_mode == HVACMode.HEAT:
+                    await self.coordinator.client.async_set_mode(
+                        self._device_code, MODE_HEATING
+                    )
+                elif hvac_mode == HVACMode.HEAT_COOL:
+                    await self.coordinator.client.async_set_mode(
+                        self._device_code, MODE_AUTO
+                    )
+
         await self.coordinator.async_request_refresh()
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
@@ -116,14 +211,51 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
             return
 
         clamped = max(self.min_temp, min(self.max_temp, float(requested)))
-        await self.coordinator.client.async_set_target_temperature(
-            self._device_code, clamped
-        )
+
+        if self._model_type == MODEL_TEP0004:
+            data = self.coordinator.data
+            mode = data.mode if data is not None else None
+
+            if mode == MODE_COOLING:
+                await self.coordinator.client.async_set_target_temperature(
+                    self._device_code, clamped
+                )
+            elif mode == MODE_HEATING:
+                await self.coordinator.client.async_set_heating_temperature(
+                    self._device_code, clamped
+                )
+            elif mode == MODE_AUTO:
+                await self.coordinator.client.async_set_auto_temperature(
+                    self._device_code, clamped
+                )
+            else:
+                # Fallback: Kühl-Sollwert (R01)
+                await self.coordinator.client.async_set_target_temperature(
+                    self._device_code, clamped
+                )
+        else:
+            await self.coordinator.client.async_set_target_temperature(
+                self._device_code, clamped
+            )
+
         await self.coordinator.async_request_refresh()
 
     async def async_turn_on(self) -> None:
-        """Komfort-Methode: Wärmepumpe einschalten."""
-        await self.async_set_hvac_mode(HVACMode.HEAT)
+        """Komfort-Methode: Wärmepumpe einschalten.
+
+        Stellt den zuletzt genutzten Betriebsmodus wieder her. Falls kein
+        vorheriger Modus bekannt ist, wird für TEP0004 COOL und für alle
+        anderen Modelle HEAT als Standard verwendet.
+        """
+        # Prefer restoring the last non-OFF HVAC mode if known, otherwise fall back
+        # to the model-specific default (COOL for TEP0004, HEAT otherwise).
+        if self._last_on_mode is not None:
+            target_mode = self._last_on_mode
+        else:
+            target_mode = (
+                HVACMode.COOL if self._model_type == MODEL_TEP0004 else HVACMode.HEAT
+            )
+        await self.async_set_hvac_mode(target_mode)
 
     async def async_turn_off(self) -> None:
         """Komfort-Methode: Wärmepumpe ausschalten."""
