@@ -18,8 +18,8 @@ Hersteller: [CF Group](https://www.cf.group/de/)
 
 ## Funktionen
 
-- **Climate-Entity:** Wärmepumpe als Thermostat mit `Heat`/`Off` und Zieltemperatur.
-- **Sensoren:** Einlass-, Rücklauf-, Coil-, Umgebungs-, Ablufttemperatur sowie Betriebsmodus und Betriebszustand (Heizen / Abtauen).
+- **Climate-Entity:** Wärmepumpe als Thermostat. TEP0001: `Heat`/`Off`. TEP0004: `Heat`/`Cool`/`Auto`/`Off` mit modusabhängigen Zieltemperaturen.
+- **Sensoren:** Einlass-, Rücklauf-, Coil-, Umgebungs-, Ablufttemperatur sowie Betriebsmodus und Betriebszustand (Heizen / Kühlen / Abtauen). TEP0004 bietet zusätzlich einen Rücklufttemperatur-Sensor.
 - **Abtau-Erkennung:** Binary-Sensor schaltet automatisch auf `an`, wenn die Pumpe abtaut (`dF` im Display).
 - **Störungserkennung:** Binary-Sensor mit aktiven Fehlercodes (z. B. `E03 – Flow Switch Protection`) als Attribut.
 - **Cloud-Status:** Diagnose-Sensor zeigt `Online` / `Offline`.
@@ -36,35 +36,56 @@ Hersteller: [CF Group](https://www.cf.group/de/)
 
 ## Getestete Hardware
 
-Diese Integration wurde **ausschließlich mit der `CF Pool Wärmepumpe SMART PLUS 3 kW`** entwickelt und getestet.
+| Modell | Beschreibung | Unterstützt |
+|--------|--------------|-------------|
+| `CF Pool Wärmepumpe SMART PLUS 3 kW` | Nur Heizen | ✅ TEP0001 |
+| `CF PROFI 8 kW` | Heizen + Kühlen + Auto | ✅ TEP0004 |
 
 > ⚠️ **Wichtiger Sicherheitshinweis:** Die Linked-Go-Cloud wird von vielen verschiedenen Wärmepumpen-Modellen genutzt, und die Hersteller belegen die technischen Codes (z. B. `R01`, `R04`, `Mode`, `Power`) **nicht einheitlich**. Auf einem anderen Modell kann derselbe Code eine völlig andere Bedeutung oder einen anderen Wertebereich haben. Wird die Integration ungeprüft auf einem fremden Modell verwendet, können dadurch falsche Werte geschrieben werden — bis hin zu Schäden am Gerät oder Sicherheitsrisiken.
 >
-> **Bitte prüfe vor der ersten Inbetriebnahme die Bedeutung der Codes in der Hersteller-App:**
->
-> 1. Aquatemp-App öffnen → das eigene Gerät auswählen.
-> 2. `Geräteeinstellungen → Geräteparameter` öffnen.
-> 3. Unter `Statusparameter` (Mess­werte) und `Kontrollparameter` (z. B. Code `066`) die Codes mit den Werten in dieser Tabelle vergleichen.
-> 4. Stimmen `R01` (Zieltemperatur), `R04`/`R05` (Min/Max), `T02`/`T04`/`T05` (Temperaturen) sowie `Power` und `Mode` **nicht** überein, **nicht weiterverwenden** und ein Issue eröffnen.
+> **Bitte prüfe vor der ersten Inbetriebnahme die Bedeutung der Codes in der Hersteller-App und vergleiche mit den Tabellen unten.**
 
 ## Protokoll-Codes
 
-Die Cloud-API verwendet technische Codes. Diese Codes nutzt die Integration intern. Die folgende Tabelle gilt für die `CF Pool Wärmepumpe SMART PLUS 3 kW` und ist auf anderen Modellen ggf. abweichend (siehe Abschnitt [Getestete Hardware](#getestete-hardware)):
+Die Cloud-API verwendet technische Codes. Diese können je nach Modell abweichen — bitte vor der Nutzung prüfen.
 
-### Temperaturen
+### TEP0001 – Nur Heizen (z. B. CF Pool Wärmepumpe SMART PLUS 3 kW)
 
-- **`R01`:** Zieltemperatur.
+#### Temperaturen
+
+- **`R01`:** Zieltemperatur (Heiz-Sollwert).
 - **`R04`:** Minimale Heiztemperatur.
 - **`R05`:** Maximale Heiztemperatur.
-- **`T02`:** Einlass-Temperatur.
+- **`T02`:** Einlass-Wassertemperatur.
 - **`T04`:** Coil-Temperatur.
 - **`T05`:** Umgebungstemperatur.
 
-### Steuerung
+#### Steuerung
 
-- **`Power`:** Ein/Aus, wobei `0` Aus und `1` Ein bedeutet.
-- **`Mode`:** Betriebsmodus.
+- **`Power`:** Ein/Aus — `0` = aus, `1` = ein.
+- **`Mode`:** Betriebsmodus (nur Heizen).
 - **`ModeState`:** Status des aktuellen Betriebsmodus.
+
+---
+
+### TEP0004 – Heizen / Kühlen / Auto (z. B. CF PROFI 8 kW)
+
+#### Temperaturen
+
+- **`R01`:** Kühl-Sollwert.
+- **`R02`:** Heiz-Sollwert.
+- **`R03`:** Auto-Modus-Sollwert.
+- **`T1`:** Rücklufttemperatur.
+- **`T2`:** Einlass-Wassertemperatur.
+- **`T3`:** Rücklauf-Wassertemperatur.
+- **`T4`:** Coil-Temperatur.
+- **`T5`:** Umgebungstemperatur.
+
+#### Steuerung
+
+- **`Power`:** Ein/Aus — `0` = aus, `1` = ein.
+- **`Mode`:** Betriebsmodus — `0` = Kühlen, `1` = Heizen, `2` = Auto.
+- **`State_mode`:** Aktiver Betriebszustand — `0` = Kühlen, `1` = Heizen.
 
 ## Installation
 
@@ -261,6 +282,6 @@ stateDiagram-v2
 
 Dieses Projekt steht unter der **MIT-Lizenz**. Den vollständigen Text findest Du in [`LICENSE`](LICENSE).
 
-Die Software wird **„wie sie ist“ und ohne jegliche Gewährleistung** zur Verfügung gestellt – weder ausdrücklich noch stillschweigend. Das schließt insbesondere die Gewährleistung der Marktgängigkeit, der Eignung für einen bestimmten Zweck und der Nichtverletzung von Rechten ein. Die Autoren oder Rechteinhaber haften in keinem Fall für Ansprüche, Schäden oder sonstige Verbindlichkeiten, die sich aus der Nutzung dieser Software ergeben.
+Die Software wird **„wie sie ist" und ohne jegliche Gewährleistung** zur Verfügung gestellt – weder ausdrücklich noch stillschweigend. Das schließt insbesondere die Gewährleistung der Marktgängigkeit, der Eignung für einen bestimmten Zweck und der Nichtverletzung von Rechten ein. Die Autoren oder Rechteinhaber haften in keinem Fall für Ansprüche, Schäden oder sonstige Verbindlichkeiten, die sich aus der Nutzung dieser Software ergeben.
 
 Die Nutzung erfolgt **auf eigene Gefahr**. Der Betrieb einer Wärmepumpe außerhalb der vom Hersteller empfohlenen Parameter kann das Gerät beschädigen, die Garantie erlöschen lassen oder Sicherheitsrisiken verursachen. Bitte beachte stets die Dokumentation des Herstellers.
