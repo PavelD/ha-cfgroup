@@ -20,7 +20,6 @@ from .api import HeatPumpData
 from .const import CONF_MODEL_TYPE, MODEL_TEP0001, MODEL_TEP0004
 from .entity import CFGroupHeatPumpEntity
 
-
 _STATE_MODE_LABELS: dict[str, str] = {
     "0": "cooling",
     "1": "heating",

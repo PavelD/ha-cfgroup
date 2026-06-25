@@ -22,7 +22,6 @@ from .const import (
     TOKEN_RENEWAL_SECONDS,
 )
 
-
 DEFAULT_TIMEOUT_SECONDS = 15
 
 
@@ -169,7 +168,9 @@ class HeatPumpData:
     @property
     def is_defrosting(self) -> bool:
         """True, wenn der Live-Betriebszustand der Cloud Abtauung meldet."""
-        return _to_optional_string(self.raw_values.get("State_mode")) == DEFROST_STATE_MODE
+        return (
+            _to_optional_string(self.raw_values.get("State_mode")) == DEFROST_STATE_MODE
+        )
 
 
 class CFGroupAsyncClient:
@@ -247,9 +248,7 @@ class CFGroupAsyncClient:
 
         device_code = devices[0].get("device_code")
         if not device_code:
-            raise CFGroupResponseError(
-                "Das erste Gerät enthält keinen device_code."
-            )
+            raise CFGroupResponseError("Das erste Gerät enthält keinen device_code.")
 
         return str(device_code)
 
@@ -513,9 +512,7 @@ class CFGroupAsyncClient:
             ) from error
 
         if not isinstance(data, dict):
-            raise CFGroupResponseError(
-                "Die Cloud-Antwort hat ein unerwartetes Format."
-            )
+            raise CFGroupResponseError("Die Cloud-Antwort hat ein unerwartetes Format.")
 
         self._raise_for_api_error(data)
         return data
@@ -552,7 +549,9 @@ class CFGroupAsyncClient:
         )
         message_str = str(message)
 
-        if error_code == ERROR_CODE_TOKEN_INVALID or _looks_like_auth_error(message_str):
+        if error_code == ERROR_CODE_TOKEN_INVALID or _looks_like_auth_error(
+            message_str
+        ):
             self._invalidate_token()
             raise CFGroupAuthenticationError(
                 f"Cloud meldet Auth-Fehler (error_code={error_code}): {message_str}"

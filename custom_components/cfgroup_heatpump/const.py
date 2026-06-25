@@ -37,7 +37,9 @@ TOKEN_RENEWAL_SECONDS = 82_800
 
 # Cloud-Fehlercodes (Feld `error_code` in der JSON-Antwort).
 ERROR_CODE_SUCCESS = "0"
-ERROR_CODE_TOKEN_INVALID = "-100"  # Antwort enthält dann "请重新登录" (bitte neu einloggen).
+ERROR_CODE_TOKEN_INVALID = (
+    "-100"  # Antwort enthält dann "请重新登录" (bitte neu einloggen).
+)
 
 # So viele aufeinanderfolgende fehlgeschlagene Polls darf der Coordinator
 # tolerieren, bevor er die Entitäten als nicht verfügbar markiert. Bei
@@ -49,9 +51,9 @@ MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE = 3
 PROTOCOL_CODE_POWER = "Power"
 PROTOCOL_CODE_MODE = "Mode"
 PROTOCOL_CODE_MODE_STATE = "ModeState"
-PROTOCOL_CODE_TARGET_TEMP = "R01"      # TEP0001: Zieltemperatur; TEP0004: Kühl-Sollwert
-PROTOCOL_CODE_HEATING_TEMP = "R02"     # TEP0004: Heiz-Sollwert
-PROTOCOL_CODE_AUTO_TEMP = "R03"        # TEP0004: Sollwert im Automatikmodus
+PROTOCOL_CODE_TARGET_TEMP = "R01"  # TEP0001: Zieltemperatur; TEP0004: Kühl-Sollwert
+PROTOCOL_CODE_HEATING_TEMP = "R02"  # TEP0004: Heiz-Sollwert
+PROTOCOL_CODE_AUTO_TEMP = "R03"  # TEP0004: Sollwert im Automatikmodus
 PROTOCOL_CODE_MIN_TEMP = "R04"
 PROTOCOL_CODE_MAX_TEMP = "R05"
 PROTOCOL_CODE_INLET_TEMP = "T02"

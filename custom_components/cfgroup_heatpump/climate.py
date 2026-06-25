@@ -49,7 +49,7 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
     TEP0004: Kühlen (COOL), Heizen (HEAT), Automatik (HEAT_COOL) und Aus (OFF).
     """
 
-    _attr_translation_key = 'heatpump'
+    _attr_translation_key = "heatpump"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = TEMP_STEP
     _attr_supported_features = (
@@ -60,7 +60,7 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
 
     def __init__(self, coordinator, model_type: str = MODEL_TEP0001) -> None:
         super().__init__(coordinator)
-        self._attr_unique_id = f'{self._device_code}_climate'
+        self._attr_unique_id = f"{self._device_code}_climate"
         self._model_type = model_type
 
         if model_type == MODEL_TEP0004:
@@ -102,10 +102,10 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
         if data is None or not data.is_on:
             return HVACAction.OFF
 
-        state = data.raw_values.get('State_mode')
+        state = data.raw_values.get("State_mode")
 
         # Abtauung hat immer Vorrang
-        if state == '17':
+        if state == "17":
             return HVACAction.DEFROSTING
 
         if self._model_type == MODEL_TEP0004:
@@ -116,7 +116,7 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
             return HVACAction.IDLE
 
         # TEP0001-Logik: State_mode "1" = Heizen (mit Idle-Erkennung)
-        if state == '1':
+        if state == "1":
             inlet = data.inlet_temperature
             target = data.target_temperature
             if inlet is not None and target is not None and inlet >= target:

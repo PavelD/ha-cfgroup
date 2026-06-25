@@ -108,7 +108,9 @@ class CFGroupHeatPumpCoordinator(DataUpdateCoordinator[HeatPumpData]):
             self._consecutive_failures = 0
             cached = self.data
             if cached is not None:
-                return replace(cached, device_status=device_status, faults=tuple(faults))
+                return replace(
+                    cached, device_status=device_status, faults=tuple(faults)
+                )
             return HeatPumpData.empty(device_status=device_status, faults=tuple(faults))
 
         try:

@@ -6,7 +6,12 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import selector
@@ -34,8 +39,12 @@ from .const import (
 _MODEL_SELECTOR = selector.SelectSelector(
     selector.SelectSelectorConfig(
         options=[
-            selector.SelectOptionDict(value=MODEL_TEP0001, label='TEP0001 – Heating only (pool heat pump)'),
-            selector.SelectOptionDict(value=MODEL_TEP0004, label='TEP0004 – Heating / Cooling / Auto'),
+            selector.SelectOptionDict(
+                value=MODEL_TEP0001, label="TEP0001 – Heating only (pool heat pump)"
+            ),
+            selector.SelectOptionDict(
+                value=MODEL_TEP0004, label="TEP0004 – Heating / Cooling / Auto"
+            ),
         ],
     )
 )
@@ -134,9 +143,7 @@ class CFGroupHeatPumpConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reauth(
-        self, entry_data: dict[str, Any]
-    ) -> ConfigFlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Wird von HA ausgelöst, wenn der Coordinator ConfigEntryAuthFailed wirft."""
         return await self.async_step_reauth_confirm()
 

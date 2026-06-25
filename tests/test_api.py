@@ -5,6 +5,7 @@ nach einem abgelaufenen Token nicht ohne Reload wieder online kam.
 Dazu prüfen wir das `error_code`-basierte Fehlerschema und den
 automatischen Re-Login bei Auth-Fehlern.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,10 +25,10 @@ from cfgroup_heatpump.api import (
     _looks_like_auth_error,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Fake aiohttp ClientSession
 # --------------------------------------------------------------------------- #
+
 
 class _FakeResponse:
     """Minimaler Ersatz für aiohttp.ClientResponse für unsere Tests."""
@@ -48,7 +49,9 @@ class _FakeResponse:
             from aiohttp import ClientResponseError, RequestInfo
             from yarl import URL
 
-            request_info = RequestInfo(URL("http://test"), "POST", {}, URL("http://test"))
+            request_info = RequestInfo(
+                URL("http://test"), "POST", {}, URL("http://test")
+            )
             raise ClientResponseError(
                 request_info=request_info,
                 history=(),
@@ -77,9 +80,7 @@ class _FakeSession:
         headers: dict[str, str] | None = None,
         timeout: Any = None,
     ) -> _FakeResponse:
-        self.calls.append(
-            {"url": url, "json": json, "headers": dict(headers or {})}
-        )
+        self.calls.append({"url": url, "json": json, "headers": dict(headers or {})})
         if not self._queue:
             raise AssertionError(f"Unerwarteter Cloud-Aufruf: {url}")
         status, payload = self._queue.pop(0)
@@ -105,6 +106,7 @@ def _login_payload(token: str = "TOKEN") -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # _raise_for_api_error
 # --------------------------------------------------------------------------- #
+
 
 def test_raise_for_api_error_success_does_nothing() -> None:
     client = _client(_FakeSession())
@@ -168,6 +170,7 @@ def test_raise_for_api_error_legacy_message_match() -> None:
 # _looks_like_auth_error
 # --------------------------------------------------------------------------- #
 
+
 @pytest.mark.parametrize(
     "message",
     [
@@ -199,6 +202,7 @@ def test_looks_like_auth_error_negative(message: str) -> None:
 # --------------------------------------------------------------------------- #
 # Automatischer Re-Login (das Kern-Verhalten gegen den Reload-Bug)
 # --------------------------------------------------------------------------- #
+
 
 def _run(coro: Any) -> Any:
     return asyncio.run(coro)
@@ -284,6 +288,7 @@ def test_request_handles_http_401_as_auth_error() -> None:
 # Neue read-only Endpoints: getDeviceStatus, getFaultDataByDeviceCode
 # Antwortbilder kommen 1:1 aus der Live-Probe gegen die Linked-Go-Cloud.
 # --------------------------------------------------------------------------- #
+
 
 def test_get_device_status_parses_online() -> None:
     """ONLINE-Status aus der Live-Cloud-Antwort wird sauber abgebildet."""
@@ -440,6 +445,7 @@ def test_get_fault_data_parses_entries_robustly() -> None:
 # HeatPumpData.empty / has_fault — Datenklassen-Verhalten
 # --------------------------------------------------------------------------- #
 
+
 def test_heatpump_data_empty_has_no_values() -> None:
     """Beim ersten Update offline soll `empty` saubere Defaults liefern."""
     status = DeviceStatus(status="OFFLINE", is_fault=False, raw={"status": "OFFLINE"})
@@ -526,6 +532,7 @@ def test_request_propagates_connection_error_unchanged() -> None:
 # _coalesce_float
 # --------------------------------------------------------------------------- #
 
+
 def test_coalesce_float_returns_first_non_none() -> None:
     values = {"T02": "28.5", "T2": "99.0"}
     assert _coalesce_float(values, "T02", "T2") == 28.5
@@ -552,6 +559,7 @@ def test_coalesce_float_returns_none_when_all_missing() -> None:
 # async_get_heatpump_data – TEP0001 vs TEP0004 parsing
 # --------------------------------------------------------------------------- #
 
+
 def _data_payload(codes: list[tuple[str, Any]]) -> dict[str, Any]:
     """Baut ein getDataByCode-Antwort-Payload aus Code/Wert-Paaren."""
     return {
@@ -566,18 +574,20 @@ def test_get_heatpump_data_tep0001_uses_T02_codes() -> None:
     session = _FakeSession()
     session.queue(
         200,
-        _data_payload([
-            ("Power", "1"),
-            ("Mode", "1"),
-            ("R01", "28.0"),
-            ("R04", "15.0"),
-            ("R05", "40.0"),
-            ("T02", "25.5"),
-            ("T03", "26.0"),
-            ("T04", "30.0"),
-            ("T05", "22.0"),
-            ("T06", ""),
-        ]),
+        _data_payload(
+            [
+                ("Power", "1"),
+                ("Mode", "1"),
+                ("R01", "28.0"),
+                ("R04", "15.0"),
+                ("R05", "40.0"),
+                ("T02", "25.5"),
+                ("T03", "26.0"),
+                ("T04", "30.0"),
+                ("T05", "22.0"),
+                ("T06", ""),
+            ]
+        ),
     )
     client = _client(session)
     client._token = "T"
@@ -605,21 +615,28 @@ def test_get_heatpump_data_tep0004_uses_short_T_codes() -> None:
     session = _FakeSession()
     session.queue(
         200,
-        _data_payload([
-            ("Power", "1"),
-            ("Mode", "0"),   # 0 = Kühlen
-            ("R01", "27.0"),  # Kühl-Sollwert
-            ("R02", "35.0"),  # Heiz-Sollwert
-            ("R03", "30.0"),  # Automatik-Sollwert
-            # T01–T06 sind für TEP0004 leer
-            ("T01", ""), ("T02", ""), ("T03", ""), ("T04", ""), ("T05", ""), ("T06", ""),
-            # TEP0004 nutzt T1–T5 (ohne Null)
-            ("T1", "20.0"),  # Rückluftemperatur
-            ("T2", "26.5"),  # Einlass
-            ("T3", "27.0"),  # Auslass
-            ("T4", "31.0"),  # Coil
-            ("T5", "23.0"),  # Ambient
-        ]),
+        _data_payload(
+            [
+                ("Power", "1"),
+                ("Mode", "0"),  # 0 = Kühlen
+                ("R01", "27.0"),  # Kühl-Sollwert
+                ("R02", "35.0"),  # Heiz-Sollwert
+                ("R03", "30.0"),  # Automatik-Sollwert
+                # T01–T06 sind für TEP0004 leer
+                ("T01", ""),
+                ("T02", ""),
+                ("T03", ""),
+                ("T04", ""),
+                ("T05", ""),
+                ("T06", ""),
+                # TEP0004 nutzt T1–T5 (ohne Null)
+                ("T1", "20.0"),  # Rückluftemperatur
+                ("T2", "26.5"),  # Einlass
+                ("T3", "27.0"),  # Auslass
+                ("T4", "31.0"),  # Coil
+                ("T5", "23.0"),  # Ambient
+            ]
+        ),
     )
     client = _client(session)
     client._token = "T"
@@ -644,6 +661,7 @@ def test_get_heatpump_data_tep0004_uses_short_T_codes() -> None:
 # --------------------------------------------------------------------------- #
 # Neue Steuer-Methoden: async_set_mode / heating_temperature / auto_temperature
 # --------------------------------------------------------------------------- #
+
 
 def _control_success() -> dict[str, Any]:
     return {"error_code": "0", "isReusltSuc": True, "objectResult": None}
@@ -716,6 +734,7 @@ def test_async_set_target_temperature_still_writes_R01() -> None:
 # --------------------------------------------------------------------------- #
 # HeatPumpData – TEP0004-spezifische Felder
 # --------------------------------------------------------------------------- #
+
 
 def test_heatpump_data_empty_tep0004_fields_are_none() -> None:
     """HeatPumpData.empty() liefert None für alle TEP0004-spezifischen Felder."""
