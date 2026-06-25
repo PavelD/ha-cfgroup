@@ -65,61 +65,40 @@ class CFGroupSensorEntityDescription(SensorEntityDescription):
     value_fn: Callable[[HeatPumpData], float | str | None]
 
 
+def _temp_sensor(
+    key: str,
+    value_fn: Callable[[HeatPumpData], float | None],
+) -> CFGroupSensorEntityDescription:
+    """Erstellt eine Temperatursensor-Beschreibung mit Standard-Einstellungen."""
+    return CFGroupSensorEntityDescription(
+        key=key,
+        translation_key=key,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        value_fn=value_fn,
+    )
+
+
+_TARGET_TEMPERATURE_DESCRIPTION = _temp_sensor(
+    "target_temperature", lambda data: data.target_temperature
+)
+
+_TEP0004_TARGET_TEMP_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
+    _temp_sensor("target_temperature_cooling", lambda data: data.cooling_temperature),
+    _temp_sensor("target_temperature_heating", lambda data: data.heating_temperature),
+    _temp_sensor("target_temperature_auto", lambda data: data.auto_temperature),
+)
+
+
 TEMPERATURE_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
-    CFGroupSensorEntityDescription(
-        key="inlet_temperature",
-        translation_key="inlet_temperature",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        suggested_display_precision=1,
-        value_fn=lambda data: data.inlet_temperature,
-    ),
-    CFGroupSensorEntityDescription(
-        key="coil_temperature",
-        translation_key="coil_temperature",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        suggested_display_precision=1,
-        value_fn=lambda data: data.coil_temperature,
-    ),
-    CFGroupSensorEntityDescription(
-        key="ambient_temperature",
-        translation_key="ambient_temperature",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        suggested_display_precision=1,
-        value_fn=lambda data: data.ambient_temperature,
-    ),
-    CFGroupSensorEntityDescription(
-        key="target_temperature",
-        translation_key="target_temperature",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        suggested_display_precision=1,
-        value_fn=lambda data: data.target_temperature,
-    ),
-    CFGroupSensorEntityDescription(
-        key="outlet_temperature",
-        translation_key="outlet_temperature",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        suggested_display_precision=1,
-        value_fn=lambda data: data.outlet_temperature,
-    ),
-    CFGroupSensorEntityDescription(
-        key="exhaust_temperature",
-        translation_key="exhaust_temperature",
-        device_class=SensorDeviceClass.TEMPERATURE,
-        state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        suggested_display_precision=1,
-        value_fn=lambda data: data.exhaust_temperature,
-    ),
+    _temp_sensor("inlet_temperature", lambda data: data.inlet_temperature),
+    _temp_sensor("coil_temperature", lambda data: data.coil_temperature),
+    _temp_sensor("ambient_temperature", lambda data: data.ambient_temperature),
+    _TARGET_TEMPERATURE_DESCRIPTION,
+    _temp_sensor("outlet_temperature", lambda data: data.outlet_temperature),
+    _temp_sensor("exhaust_temperature", lambda data: data.exhaust_temperature),
     CFGroupSensorEntityDescription(
         key="mode",
         translation_key="mode",
@@ -148,14 +127,8 @@ DIAGNOSTIC_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
 )
 
 
-_RETURN_AIR_TEMP_DESCRIPTION = CFGroupSensorEntityDescription(
-    key="return_air_temperature",
-    translation_key="return_air_temperature",
-    device_class=SensorDeviceClass.TEMPERATURE,
-    state_class=SensorStateClass.MEASUREMENT,
-    native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-    suggested_display_precision=1,
-    value_fn=lambda data: data.return_air_temperature,
+_RETURN_AIR_TEMP_DESCRIPTION = _temp_sensor(
+    "return_air_temperature", lambda data: data.return_air_temperature
 )
 
 
@@ -168,13 +141,24 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     model_type = entry.data.get(CONF_MODEL_TYPE, MODEL_TEP0001)
 
-    extra: tuple[CFGroupSensorEntityDescription, ...] = ()
     if model_type == MODEL_TEP0004:
-        extra = (_RETURN_AIR_TEMP_DESCRIPTION,)
+        # TEP0004: replace the generic target_temperature with three mode-specific sensors
+        temp_descriptions = tuple(
+            d
+            for d in TEMPERATURE_DESCRIPTIONS
+            if d is not _TARGET_TEMPERATURE_DESCRIPTION
+        )
+        extra: tuple[CFGroupSensorEntityDescription, ...] = (
+            *_TEP0004_TARGET_TEMP_DESCRIPTIONS,
+            _RETURN_AIR_TEMP_DESCRIPTION,
+        )
+    else:
+        temp_descriptions = TEMPERATURE_DESCRIPTIONS
+        extra = ()
 
     async_add_entities(
         CFGroupHeatPumpSensor(coordinator, description)
-        for description in (*TEMPERATURE_DESCRIPTIONS, *DIAGNOSTIC_DESCRIPTIONS, *extra)
+        for description in (*temp_descriptions, *DIAGNOSTIC_DESCRIPTIONS, *extra)
     )
 
 
