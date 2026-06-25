@@ -73,6 +73,15 @@
       "target_temperature": {
         "name": "Zieltemperatur"
       },
+      "target_temperature_cooling": {
+        "name": "Zieltemperatur (Kühlen)"
+      },
+      "target_temperature_heating": {
+        "name": "Zieltemperatur (Heizen)"
+      },
+      "target_temperature_auto": {
+        "name": "Zieltemperatur (Automatik)"
+      },
       "outlet_temperature": {
         "name": "Rücklauftemperatur"
       },

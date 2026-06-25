@@ -73,6 +73,15 @@
       "target_temperature": {
         "name": "Target temperature"
       },
+      "target_temperature_cooling": {
+        "name": "Target temperature (cooling)"
+      },
+      "target_temperature_heating": {
+        "name": "Target temperature (heating)"
+      },
+      "target_temperature_auto": {
+        "name": "Target temperature (auto)"
+      },
       "outlet_temperature": {
         "name": "Outlet temperature"
       },

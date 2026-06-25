@@ -65,6 +65,37 @@ class CFGroupSensorEntityDescription(SensorEntityDescription):
     value_fn: Callable[[HeatPumpData], float | str | None]
 
 
+_TEP0004_TARGET_TEMP_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
+    CFGroupSensorEntityDescription(
+        key="target_temperature_cooling",
+        translation_key="target_temperature_cooling",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.cooling_temperature,
+    ),
+    CFGroupSensorEntityDescription(
+        key="target_temperature_heating",
+        translation_key="target_temperature_heating",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.heating_temperature,
+    ),
+    CFGroupSensorEntityDescription(
+        key="target_temperature_auto",
+        translation_key="target_temperature_auto",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
+        value_fn=lambda data: data.auto_temperature,
+    ),
+)
+
+
 TEMPERATURE_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
     CFGroupSensorEntityDescription(
         key="inlet_temperature",
@@ -168,13 +199,22 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     model_type = entry.data.get(CONF_MODEL_TYPE, MODEL_TEP0001)
 
-    extra: tuple[CFGroupSensorEntityDescription, ...] = ()
     if model_type == MODEL_TEP0004:
-        extra = (_RETURN_AIR_TEMP_DESCRIPTION,)
+        # TEP0004: replace the generic target_temperature with three mode-specific sensors
+        temp_descriptions = tuple(
+            d for d in TEMPERATURE_DESCRIPTIONS if d.key != "target_temperature"
+        )
+        extra: tuple[CFGroupSensorEntityDescription, ...] = (
+            *_TEP0004_TARGET_TEMP_DESCRIPTIONS,
+            _RETURN_AIR_TEMP_DESCRIPTION,
+        )
+    else:
+        temp_descriptions = TEMPERATURE_DESCRIPTIONS
+        extra = ()
 
     async_add_entities(
         CFGroupHeatPumpSensor(coordinator, description)
-        for description in (*TEMPERATURE_DESCRIPTIONS, *DIAGNOSTIC_DESCRIPTIONS, *extra)
+        for description in (*temp_descriptions, *DIAGNOSTIC_DESCRIPTIONS, *extra)
     )
 
 
