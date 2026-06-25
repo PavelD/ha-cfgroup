@@ -2,4 +2,5 @@
 # Im normalen HACS-Betrieb werden diese NICHT gebraucht, Home Assistant
 # bringt aiohttp bereits selbst mit.
 pytest>=8.0
+pytest-cov>=4.0
 aiohttp>=3.9

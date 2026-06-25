@@ -7,6 +7,7 @@ und mounten sie unter dem schlanken Paket-Alias `cfgroup_heatpump`.
 Damit funktionieren die relativen Imports in `api.py`, ohne dass HA
 geladen werden muss.
 """
+
 from __future__ import annotations
 
 import importlib.util
