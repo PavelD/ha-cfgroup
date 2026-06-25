@@ -14,7 +14,7 @@ on:
 
 jobs:
   hacs:
-    if: "!startsWith(github.event.head_commit.message, 'Update manifest version to')"
+    continue-on-error: true
     name: HACS Action
     runs-on: "ubuntu-latest"
     steps:

@@ -15,7 +15,6 @@ on:
 
 jobs:
   black:
-    if: "!startsWith(github.event.head_commit.message, 'Update manifest version to')"
     name: Python Code Format Check
     runs-on: ubuntu-latest
     steps:
@@ -27,7 +26,6 @@ jobs:
           args: ". --check --fast --diff"
 
   tests:
-    if: "!startsWith(github.event.head_commit.message, 'Update manifest version to')"
     runs-on: ubuntu-latest
     name: Test Integration
 
@@ -47,9 +45,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements_tests.txt
+        pip install -r requirements-dev.txt
 
     - name: Run tests with coverage
       run: |
-        pytest --cov=custom_components/storyflow --cov-report=term-missing --cov-fail-under=0 tests/
+        pytest --cov=custom_components/cfgroup_heatpump --cov-report=term-missing --cov-fail-under=0 tests/
