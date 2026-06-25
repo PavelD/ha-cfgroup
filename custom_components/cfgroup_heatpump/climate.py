@@ -62,6 +62,7 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{self._device_code}_climate"
         self._model_type = model_type
+        self._last_on_mode: HVACMode | None = None
 
         if model_type == MODEL_TEP0004:
             self._attr_hvac_modes = [
@@ -179,6 +180,9 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
         if hvac_mode == HVACMode.OFF:
             await self.coordinator.client.async_set_power(self._device_code, False)
         else:
+            # Merke den letzten aktiven Modus für async_turn_on
+            self._last_on_mode = hvac_mode
+
             # Einschalten, falls die Pumpe aus ist
             data = self.coordinator.data
             if data is not None and not data.is_on:
@@ -237,10 +241,21 @@ class CFGroupHeatPumpClimate(CFGroupHeatPumpEntity, ClimateEntity):
         await self.coordinator.async_request_refresh()
 
     async def async_turn_on(self) -> None:
-        """Komfort-Methode: Wärmepumpe einschalten."""
-        await self.async_set_hvac_mode(
-            HVACMode.COOL if self._model_type == MODEL_TEP0004 else HVACMode.HEAT
-        )
+        """Komfort-Methode: Wärmepumpe einschalten.
+
+        Stellt den zuletzt genutzten Betriebsmodus wieder her. Falls kein
+        vorheriger Modus bekannt ist, wird für TEP0004 COOL und für alle
+        anderen Modelle HEAT als Standard verwendet.
+        """
+        # Prefer restoring the last non-OFF HVAC mode if known, otherwise fall back
+        # to the model-specific default (COOL for TEP0004, HEAT otherwise).
+        if self._last_on_mode is not None:
+            target_mode = self._last_on_mode
+        else:
+            target_mode = (
+                HVACMode.COOL if self._model_type == MODEL_TEP0004 else HVACMode.HEAT
+            )
+        await self.async_set_hvac_mode(target_mode)
 
     async def async_turn_off(self) -> None:
         """Komfort-Methode: Wärmepumpe ausschalten."""

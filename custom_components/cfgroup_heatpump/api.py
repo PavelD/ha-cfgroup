@@ -17,6 +17,7 @@ from .const import (
     POLLED_PROTOCOL_CODES,
     PROTOCOL_CODE_AUTO_TEMP,
     PROTOCOL_CODE_HEATING_TEMP,
+    PROTOCOL_CODE_MODE,
     PROTOCOL_CODE_POWER,
     PROTOCOL_CODE_TARGET_TEMP,
     TOKEN_RENEWAL_SECONDS,
@@ -376,7 +377,9 @@ class CFGroupAsyncClient:
 
     async def async_set_mode(self, device_code: str, mode_value: str) -> None:
         """Setzt den Betriebsmodus (TEP0004: '0'=Kühlen, '1'=Heizen, '2'=Automatik)."""
-        await self._async_set_protocol_value(device_code, "Mode", mode_value)
+        await self._async_set_protocol_value(
+            device_code, PROTOCOL_CODE_MODE, mode_value
+        )
 
     async def async_set_heating_temperature(
         self,
