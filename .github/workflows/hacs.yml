@@ -14,7 +14,6 @@ on:
 
 jobs:
   hacs:
-    continue-on-error: true
     name: HACS Action
     runs-on: "ubuntu-latest"
     steps:
@@ -25,6 +24,7 @@ jobs:
           python -m json.tool hacs.json
 
       - name: HACS Action
+        continue-on-error: true
         uses: "hacs/action@main"
         with:
           category: "integration"
