@@ -17,10 +17,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import CFGroupConfigEntry
 from .api import HeatPumpData
+from .const import CONF_MODEL_TYPE, MODEL_TEP0001, MODEL_TEP0004
 from .entity import CFGroupHeatPumpEntity
 
 
 _STATE_MODE_LABELS: dict[str, str] = {
+    "0": "cooling",
     "1": "heating",
     "17": "defrost",
 }
@@ -147,6 +149,17 @@ DIAGNOSTIC_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
 )
 
 
+_RETURN_AIR_TEMP_DESCRIPTION = CFGroupSensorEntityDescription(
+    key="return_air_temperature",
+    translation_key="return_air_temperature",
+    device_class=SensorDeviceClass.TEMPERATURE,
+    state_class=SensorStateClass.MEASUREMENT,
+    native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+    suggested_display_precision=1,
+    value_fn=lambda data: data.return_air_temperature,
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: CFGroupConfigEntry,
@@ -154,9 +167,15 @@ async def async_setup_entry(
 ) -> None:
     """Richtet alle Sensoren für einen Config Entry ein."""
     coordinator = entry.runtime_data
+    model_type = entry.data.get(CONF_MODEL_TYPE, MODEL_TEP0001)
+
+    extra: tuple[CFGroupSensorEntityDescription, ...] = ()
+    if model_type == MODEL_TEP0004:
+        extra = (_RETURN_AIR_TEMP_DESCRIPTION,)
+
     async_add_entities(
         CFGroupHeatPumpSensor(coordinator, description)
-        for description in (*TEMPERATURE_DESCRIPTIONS, *DIAGNOSTIC_DESCRIPTIONS)
+        for description in (*TEMPERATURE_DESCRIPTIONS, *DIAGNOSTIC_DESCRIPTIONS, *extra)
     )
 
 

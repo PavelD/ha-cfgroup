@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **TEP0004 model support**: heating / cooling / auto heat pumps are now supported via a new model selection in the config flow
+  - Climate entity exposes `Heat`, `Cool`, `Auto` (`heat_cool`) and `Off` modes
+  - Per-mode setpoints: cooling → R01, heating → R02, auto → R03
+  - `hvac_action` reports `heating`, `cooling`, `defrosting` or `idle` based on `State_mode`
+- **Return air temperature sensor** (TEP0004 only): new sensor reading protocol code `T1`
+- **Cooling state** added to the operating state sensor (`state_mode`): new value `cooling`
+- **Model selector** in setup and reconfigure dialogs: `TEP0001 – Heating only` or `TEP0004 – Heating / Cooling / Auto`
+- **Transparent sensor code fallback**: temperature sensors now try both `T02`-style (TEP0001) and `T2`-style (TEP0004) protocol codes automatically
+
+### Backward compatibility
+- Existing TEP0001 setups are unaffected; `model_type` defaults to `tep0001` when absent from the config entry
+
 ## [0.5.1] - 2026-06-13
 
 ### Added

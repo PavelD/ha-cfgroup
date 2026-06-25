@@ -15,6 +15,8 @@ from .const import (
     ERROR_CODE_SUCCESS,
     ERROR_CODE_TOKEN_INVALID,
     POLLED_PROTOCOL_CODES,
+    PROTOCOL_CODE_AUTO_TEMP,
+    PROTOCOL_CODE_HEATING_TEMP,
     PROTOCOL_CODE_POWER,
     PROTOCOL_CODE_TARGET_TEMP,
     TOKEN_RENEWAL_SECONDS,
@@ -83,6 +85,19 @@ class HeatPumpData:
     optional auch den schlanken Geräte-Status (`getDeviceStatus`) und die
     aktiven Fehler (`getFaultDataByDeviceCode`). Beide Felder haben sichere
     Defaults, sodass Tests und ältere Code-Pfade unverändert funktionieren.
+
+    TEP0001-Felder:
+        target_temperature   – R01 (einziger Sollwert)
+        min_temperature      – R04 (minimale Heiztemperatur)
+        max_temperature      – R05 (maximale Heiztemperatur)
+        inlet_temperature    – T02 (Einlasstemperatur)
+
+    TEP0004-Felder:
+        cooling_temperature  – R01 (Kühl-Sollwert)
+        heating_temperature  – R02 (Heiz-Sollwert)
+        auto_temperature     – R03 (Automatik-Sollwert)
+        return_air_temperature – T1 (Rückluftemperatur)
+        inlet_temperature    – T2 (Einlasstemperatur, TEP0004-Codename)
     """
 
     power: str | None
@@ -97,6 +112,11 @@ class HeatPumpData:
     min_temperature: float | None
     max_temperature: float | None
     raw_values: dict[str, Any]
+    # TEP0004-spezifische Felder (None für TEP0001)
+    cooling_temperature: float | None = None
+    heating_temperature: float | None = None
+    auto_temperature: float | None = None
+    return_air_temperature: float | None = None
     device_status: DeviceStatus | None = None
     faults: tuple[FaultEntry, ...] = ()
 
@@ -126,6 +146,10 @@ class HeatPumpData:
             min_temperature=None,
             max_temperature=None,
             raw_values={},
+            cooling_temperature=None,
+            heating_temperature=None,
+            auto_temperature=None,
+            return_air_temperature=None,
             device_status=device_status,
             faults=faults,
         )
@@ -258,15 +282,22 @@ class CFGroupAsyncClient:
             power=_to_optional_string(values.get("Power")),
             mode=_to_optional_string(values.get("Mode")),
             mode_state=_to_optional_string(values.get("ModeState")),
-            inlet_temperature=_to_optional_float(values.get("T02")),
-            outlet_temperature=_to_optional_float(values.get("T03")),
-            coil_temperature=_to_optional_float(values.get("T04")),
-            ambient_temperature=_to_optional_float(values.get("T05")),
+            # TEP0001 nutzt T02–T06; TEP0004 nutzt T2–T5 (ohne führende Null).
+            # _coalesce_float probiert beide Varianten und liefert den ersten Non-None-Wert.
+            inlet_temperature=_coalesce_float(values, "T02", "T2"),
+            outlet_temperature=_coalesce_float(values, "T03", "T3"),
+            coil_temperature=_coalesce_float(values, "T04", "T4"),
+            ambient_temperature=_coalesce_float(values, "T05", "T5"),
             exhaust_temperature=_to_optional_float(values.get("T06")),
             target_temperature=_to_optional_float(values.get("R01")),
             min_temperature=_to_optional_float(values.get("R04")),
             max_temperature=_to_optional_float(values.get("R05")),
             raw_values=values,
+            # TEP0004-Sollwerte
+            cooling_temperature=_to_optional_float(values.get("R01")),
+            heating_temperature=_to_optional_float(values.get("R02")),
+            auto_temperature=_to_optional_float(values.get("R03")),
+            return_air_temperature=_to_optional_float(values.get("T1")),
         )
 
     async def async_get_device_status(self, device_code: str) -> DeviceStatus:
@@ -343,6 +374,34 @@ class CFGroupAsyncClient:
         """Schaltet die Wärmepumpe ein oder aus."""
         value = "1" if enabled else "0"
         await self._async_set_protocol_value(device_code, PROTOCOL_CODE_POWER, value)
+
+    async def async_set_mode(self, device_code: str, mode_value: str) -> None:
+        """Setzt den Betriebsmodus (TEP0004: '0'=Kühlen, '1'=Heizen, '2'=Automatik)."""
+        await self._async_set_protocol_value(device_code, "Mode", mode_value)
+
+    async def async_set_heating_temperature(
+        self,
+        device_code: str,
+        temperature: float,
+    ) -> None:
+        """Setzt den Heiz-Sollwert (R02, TEP0004)."""
+        await self._async_set_protocol_value(
+            device_code,
+            PROTOCOL_CODE_HEATING_TEMP,
+            _format_number(temperature),
+        )
+
+    async def async_set_auto_temperature(
+        self,
+        device_code: str,
+        temperature: float,
+    ) -> None:
+        """Setzt den Automatik-Sollwert (R03, TEP0004)."""
+        await self._async_set_protocol_value(
+            device_code,
+            PROTOCOL_CODE_AUTO_TEMP,
+            _format_number(temperature),
+        )
 
     async def async_set_target_temperature(
         self,
@@ -511,6 +570,21 @@ def _to_optional_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _coalesce_float(values: dict[str, Any], *keys: str) -> float | None:
+    """Gibt den ersten Non-None-Float-Wert aus den angegebenen Schlüsseln zurück.
+
+    Wird genutzt, um TEP0001 (T02–T06) und TEP0004 (T2–T5) transparent zu
+    unterstützen: zuerst die lange Schreibweise (z. B. „T02"), dann die kurze
+    (z. B. „T2"). Ein Wert von 0,0 °C wird dabei korrekt erkannt und nicht
+    als fehlend behandelt.
+    """
+    for key in keys:
+        result = _to_optional_float(values.get(key))
+        if result is not None:
+            return result
+    return None
 
 
 def _to_optional_string(value: Any) -> str | None:

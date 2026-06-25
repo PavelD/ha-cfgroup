@@ -7,7 +7,11 @@
         "data": {
           "username": "Benutzername oder E-Mail",
           "password": "Passwort",
-          "cloud_url": "Cloud-URL"
+          "cloud_url": "Cloud-URL",
+          "model_type": "Wärmepumpenmodell"
+        },
+        "data_description": {
+          "model_type": "Wähle das Modell Deiner Wärmepumpe. TEP0001 unterstützt nur Heizen; TEP0004 unterstützt Heizen, Kühlen und Automatik."
         }
       },
       "reauth_confirm": {
@@ -23,7 +27,8 @@
         "data": {
           "username": "Benutzername oder E-Mail",
           "password": "Passwort",
-          "cloud_url": "Cloud-URL"
+          "cloud_url": "Cloud-URL",
+          "model_type": "Wärmepumpenmodell"
         }
       }
     },
@@ -74,6 +79,9 @@
       "exhaust_temperature": {
         "name": "Abluftemperatur"
       },
+      "return_air_temperature": {
+        "name": "Rückluftemperatur"
+      },
       "mode": {
         "name": "Betriebsmodus"
       },
@@ -87,6 +95,7 @@
       "state_mode": {
         "name": "Betriebszustand",
         "state": {
+          "cooling": "Kühlen",
           "heating": "Heizen",
           "defrost": "Abtauen",
           "idle": "Leerlauf"

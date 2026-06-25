@@ -7,7 +7,11 @@
         "data": {
           "username": "Username or e-mail",
           "password": "Password",
-          "cloud_url": "Cloud URL"
+          "cloud_url": "Cloud URL",
+          "model_type": "Heat pump model"
+        },
+        "data_description": {
+          "model_type": "Select the model of your heat pump. TEP0001 supports heating only; TEP0004 supports heating, cooling and auto mode."
         }
       },
       "reauth_confirm": {
@@ -23,7 +27,8 @@
         "data": {
           "username": "Username or e-mail",
           "password": "Password",
-          "cloud_url": "Cloud URL"
+          "cloud_url": "Cloud URL",
+          "model_type": "Heat pump model"
         }
       }
     },
@@ -74,14 +79,19 @@
       "exhaust_temperature": {
         "name": "Exhaust temperature"
       },
+      "return_air_temperature": {
+        "name": "Return air temperature"
+      },
       "mode": {
         "name": "Operating mode"
       },
       "state_mode": {
         "name": "Operating state",
         "state": {
+          "cooling": "Cooling",
           "heating": "Heating",
-          "defrost": "Defrost"
+          "defrost": "Defrost",
+          "idle": "Idle"
         }
       },
       "cloud_status": {
