@@ -98,7 +98,7 @@ TEMPERATURE_DESCRIPTIONS: tuple[CFGroupSensorEntityDescription, ...] = (
     _temp_sensor("ambient_temperature", lambda data: data.ambient_temperature),
     _TARGET_TEMPERATURE_DESCRIPTION,
     _temp_sensor("outlet_temperature", lambda data: data.outlet_temperature),
-    _temp_sensor("exhaust_temperature", lambda data: data.exhaust_temperature),
+    _EXHAUST_TEMPERATURE_DESCRIPTION := _temp_sensor("exhaust_temperature", lambda data: data.exhaust_temperature),
     CFGroupSensorEntityDescription(
         key="mode",
         translation_key="mode",
@@ -143,10 +143,12 @@ async def async_setup_entry(
 
     if model_type == MODEL_TEP0004:
         # TEP0004: replace the generic target_temperature with three mode-specific sensors
+        # and remove exhaust_temperature (T06 is not available on TEP0004).
         temp_descriptions = tuple(
             d
             for d in TEMPERATURE_DESCRIPTIONS
             if d is not _TARGET_TEMPERATURE_DESCRIPTION
+            and d is not _EXHAUST_TEMPERATURE_DESCRIPTION
         )
         extra: tuple[CFGroupSensorEntityDescription, ...] = (
             *_TEP0004_TARGET_TEMP_DESCRIPTIONS,
